@@ -394,7 +394,7 @@ ROOT.addEventListener('submit',async event=>{
   chatBusyV4=true;render();
   try{const data=await api('/api/assistant',{method:'POST',body:{question,history}});
    chatV4.push({role:'assistant',content:data.answer});}
-  catch{chatV4.push({role:'assistant',content:'I could not answer that question right now. Please try again.'});}
+  catch(err){chatV4.push({role:'assistant',content:err?.status===401?'Your session has expired. Please sign in again.':'Project information is temporarily unavailable. Please try again.'});}
   finally{chatBusyV4=false;render();}
   return;
  }
