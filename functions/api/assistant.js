@@ -56,7 +56,7 @@ function directAnswer(question,view,allProjects,people,assignments){
   const active=allProjects.filter(p=>p.status==='Active').length;
   return 'You can access '+allProjects.length+' projects, including '+active+' active projects.';
  }
- if(/(?:list|show|which|what are|names of)\s+(?:all\s+|my\s+|the\s+)?projects?\b/.test(q)&&!kind.finance&&!kind.team)
+ if(/(?:list|show|which|what are|names of|what)\s+(?:all\s+|my\s+|the\s+)?projects?\b/.test(q)&&!kind.finance&&!(kind.team&&/assigned|owner|responsib|holding|handle/.test(q)))
   return 'Projects available in your portal: '+allProjects.map(p=>p.project_code+' — '+(p.project_code==='776'?'Slag Mill KSA (RICG)':p.client)).join('; ')+'.';
  if(kind.finance&&/actual|recorded|profit|revenue|margin|p&l/.test(q)){
    const entries=view.flatMap(x=>x.actuals.map(r=>({code:x.project.code,...r})));
@@ -74,7 +74,7 @@ function directAnswer(question,view,allProjects,people,assignments){
  if(kind.clause&&!view.some(x=>x.contracts.some(c=>c.text))){
   return 'The contract clauses or extracted contract text needed to answer that question are not currently present in the portal. Project register details may still be available.';
  }
- if(kind.team&&/\b(?:who|which|what|how many|hold|holding|assign|workload|team)\b/.test(q)){
+ if(kind.team&&!group&&/\b(?:who|which|what|how many|hold|holding|assign|workload|team)\b/.test(q)){
   const all=people.filter(p=>p.active&&p.role==='team_member');
   const assigned=(user)=>[...new Set(assignments.filter(a=>a.user_id===user.id&&allProjects.some(p=>p.project_code===a.project_code)).map(a=>a.project_code))];
   const named=all.filter(u=>q.includes(low(u.display_name))||(low(u.display_name).length>4&&q.includes(low(firstName(u.display_name)))));
