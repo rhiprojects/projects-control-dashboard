@@ -18,16 +18,18 @@ export function onRequestPost({request,env}){return handler(async()=>{
  const active=matched.length?matched:projects;
  const snapshot=await Promise.all(active.map(async p=>{
   const code=encodeURIComponent(p.project_code);
-  const [monthly,lines,actuals,docs]=await Promise.all([
+  const [monthly,lines,actuals,docs,revisions]=await Promise.all([
    rest(env,`project_monthly_budgets?project_code=eq.${code}&select=period_start,currency,current_amount,baseline_amount&limit=1000`,{token:user.token}),
    rest(env,`project_budget_lines?project_code=eq.${code}&select=period_start,category,detail,currency,current_amount,baseline_amount&limit=1200`,{token:user.token}),
    rest(env,`project_pnl_actuals?project_code=eq.${code}&select=period_start,account_name,currency,amount&limit=1000`,{token:user.token}),
-   rest(env,`project_documents?project_code=eq.${code}&document_type=eq.contract&select=original_name,extraction_preview&limit=10`,{token:user.token})
+   rest(env,`project_documents?project_code=eq.${code}&document_type=eq.contract&select=original_name,extraction_preview&limit=10`,{token:user.token}),
+   /change|edited|revision|audit|previous value/i.test(q)?rest(env,`financial_change_history?project_code=eq.${code}&select=financial_area,entry_key,previous_value,new_value,edited_by,edited_at&order=edited_at.desc&limit=100`,{token:user.token}):Promise.resolve([])
   ]);
   return {project:{...p,display_name:p.project_code==='776'?'Slag Mill KSA (RICG)':p.client,internal_owner_name:ownerName(p.internal_owner_id),creator_name:ownerName(p.created_by)},
    monthly:(monthly||[]).map(({period_start,currency,current_amount,baseline_amount})=>[period_start,currency,current_amount,baseline_amount]),
    budgetLines:(lines||[]).map(({period_start,category,detail,currency,current_amount,baseline_amount})=>[period_start,category,detail,currency,current_amount,baseline_amount]),
    actuals:(actuals||[]).map(({period_start,account_name,currency,amount})=>[period_start,account_name,currency,amount]),
+   changes:(revisions||[]).map(r=>({...r,edited_by_name:ownerName(r.edited_by)})),
    contracts:/(contract|term|payment|clause|signed|agreement|penalt|scope|date)/i.test(q)?
     (docs||[]).map(d=>({name:d.original_name,text:String(d.extraction_preview?.text||'').slice(0,10500)})):[]
   };
