@@ -196,17 +196,20 @@ function v5TeamPanel(){
  (people.length?v7Chart('Assigned Projects By Team Member','bar',people.map(x=>x.display_name),[{name:'Assigned Projects',values:people.map(u=>new Set(assignments.filter(x=>x.user_id===u.id).map(x=>x.project_code)).size)}])+'<div class="table-wrap"><table class="v6-team-table"><thead><tr><th>Team Member</th><th>Assigned Projects</th><th>Project Codes</th></tr></thead><tbody>'+people.map(u=>{const codes=[...new Set(assignments.filter(x=>x.user_id===u.id).map(x=>x.project_code))];return '<tr><td><strong>'+h(u.display_name)+'</strong></td><td class="v6-count">'+codes.length+'</td><td>'+h(codes.join(', ')||'Unassigned')+'</td></tr>'}).join('')+'</tbody></table></div>':'<p>No active team members are available.</p>')+'</section>';
 }
 function v5Portfolio(){
- const currencies=[...new Set(active().map(p=>p.contractCurrency).filter(Boolean))];
+ const currencies=[...new Set(active().map(p=>v7BudgetCurrency(p.id)).filter(Boolean))];
  const charts=currencies.map(currency=>{
-  const eligible=active().filter(p=>p.contractCurrency===currency);
   const labels=[],values=[];
-  eligible.forEach(p=>{
-   const rows=v5Rows(p.id).filter(x=>x.currency===currency&&v5Number(x.baseline_amount)!==null);
-   if(rows.length){labels.push(p.id);values.push(rows.reduce((n,x)=>n+Number(x.baseline_amount),0));}
+  active().filter(p=>v7BudgetCurrency(p.id)===currency).forEach(p=>{
+   const total=v7Total(v7MonthlyBudget(p.id).filter(x=>x.currency===currency),'baseline_amount');
+   if(total!==null){labels.push(p.id);values.push(total);}
   });
-  return v7Chart('2027 Approved COGS By Project · '+currency,'bar',labels,[{name:'Approved COGS',values}],currency);
+  return v7Chart('2027 Project Budget By Project · '+currency,'bar',labels,[{name:'Approved Project Budget',values}],currency);
  }).join('');
- return charts+'<section class="card panel v4-section"><div class="panelhead"><h2 class="paneltitle">Project Financial Overview</h2></div><p class="v5-context">2027 approved COGS in each project currency. Arrows use recorded Revenue minus COGS only; neutral means insufficient actual data.</p><div class="v5-portfolio-grid">'+active().map(p=>'<div class="v5-portfolio-item"><div><strong>'+h(p.id)+' · '+h(p.displayName||p.client)+'</strong>'+v5Arrow(p)+'</div><small>2027 Approved COGS · '+h(p.contractCurrency)+'</small><strong>'+v5Money((()=>{const a=v5Rows(p.id).filter(x=>x.currency===p.contractCurrency&&v5Number(x.baseline_amount)!==null);return a.length?a.reduce((n,x)=>n+Number(x.baseline_amount),0):null})(),p.contractCurrency)+'</strong><button class="btn small" data-project="'+h(p.id)+'">View Financial Analysis</button></div>').join('')+'</div></section>';
+ return charts+'<section class="card panel v4-section"><div class="panelhead"><h2 class="paneltitle">Project Financial Overview</h2></div><p class="v5-context">2027 projected monthly project budgets include manpower and other project costs, grouped by budget currency. Contract values may use a different currency. Arrows reflect recorded Revenue minus COGS only.</p><div class="v5-portfolio-grid">'+active().map(p=>{
+  const currency=v7BudgetCurrency(p.id);
+  const total=v7Total(v7MonthlyBudget(p.id).filter(x=>x.currency===currency),'baseline_amount');
+  return '<div class="v5-portfolio-item"><div><strong>'+h(p.id)+' · '+h(p.displayName||p.client)+'</strong>'+v5Arrow(p)+'</div><small>2027 Approved Project Budget · '+h(currency||'')+'</small><strong>'+v5Money(total,currency)+'</strong><button class="btn small" data-project="'+h(p.id)+'">View Financial Analysis</button></div>';
+ }).join('')+'</div></section>';
 }
 
 function overviewV4(){
