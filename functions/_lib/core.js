@@ -26,7 +26,7 @@ export async function identity(request,env){
 export const adminOnly=session=>{if(session.role!=='super_admin')throw new HttpError(403,'Super Admin only')};
 export function code(value){if(typeof value!=='string'||!/^\d{2,5}(?:\.\d{1,3})?$/.test(value))throw new HttpError(400,'Invalid project code');return value}
 export function toProject(r){return {
- id:r.project_code, name:r.project_code+' — '+r.client+' — '+r.scope,client:r.client,scope:r.scope,
+ id:r.project_code, name:r.project_code+' — '+(r.project_code==='776'?'Slag Mill KSA (RICG)':r.client)+' — '+r.scope,displayName:r.project_code==='776'?'Slag Mill KSA (RICG)':r.client,client:r.client,scope:r.scope,
  contractCurrency:r.currency,contractValue:r.contract_amount===null?null:Number(r.contract_amount),
  status:r.status,progress:r.physical_progress_pct===null?null:Number(r.physical_progress_pct),notes:r.source_notes??'',
  sourceTotalProgress:r.source_total_progress===null?null:Number(r.source_total_progress),

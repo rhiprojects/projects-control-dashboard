@@ -7,7 +7,8 @@ export function onRequestPost({request,env}){return handler(async()=>{
  let body;try{body=await request.json()}catch{throw new HttpError(400,'Invalid question')}
  const q=String(body.question||'').trim();
  if(!q||q.length>1600)throw new HttpError(400,'Enter a shorter question');
- const projects=await rest(env,`ongoing_projects?select=${projectFields}&order=project_code.asc`,{token:user.token});
+ const [projects,people]=await Promise.all([rest(env,`ongoing_projects?select=${projectFields}&order=project_code.asc`,{token:user.token}),rest(env,'project_users?select=id,display_name,role&limit=200',{token:user.token})]);
+ const ownerName=id=>(people||[]).find(x=>x.id===id)?.display_name||null;
  if(!projects.length)return json({answer:'There are no projects available to your account.'});
  const lq=phrase(q);
  if(/(how many|number of|count).*projects?/.test(lq)&&!/(budget|expense|owner|contract|month|year)/.test(lq))
@@ -23,7 +24,7 @@ export function onRequestPost({request,env}){return handler(async()=>{
    rest(env,`project_pnl_actuals?project_code=eq.${code}&select=period_start,account_name,currency,amount&limit=1000`,{token:user.token}),
    rest(env,`project_documents?project_code=eq.${code}&document_type=eq.contract&select=original_name,extraction_preview&limit=10`,{token:user.token})
   ]);
-  return {project:p,
+  return {project:{...p,display_name:p.project_code==='776'?'Slag Mill KSA (RICG)':p.client,internal_owner_name:ownerName(p.internal_owner_id),creator_name:ownerName(p.created_by)},
    monthly:(monthly||[]).map(({period_start,currency,current_amount,baseline_amount})=>[period_start,currency,current_amount,baseline_amount]),
    budgetLines:(lines||[]).map(({period_start,category,detail,currency,current_amount,baseline_amount})=>[period_start,category,detail,currency,current_amount,baseline_amount]),
    actuals:(actuals||[]).map(({period_start,account_name,currency,amount})=>[period_start,account_name,currency,amount]),

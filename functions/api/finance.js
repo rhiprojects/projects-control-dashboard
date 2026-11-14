@@ -29,11 +29,13 @@ export function onRequestPost({request,env}){return handler(async()=>{
  const user=await identity(request,env);
  let body;try{body=await request.json()}catch{throw new HttpError(400,'Invalid input')}
  const pcode=code(String(body.projectCode||'')),period=String(body.period||'');
- await getProject(env,user,pcode);
+ const parent=await getProject(env,user,pcode);
  if(!/^\d{4}-\d{2}-01$/.test(period))throw new HttpError(400,'Select the first day of a month');
  const exists=await rest(env,`project_monthly_budgets?project_code=eq.${encodeURIComponent(pcode)}&period_start=eq.${period}&select=project_code&limit=1`,{token:user.token});
  if(exists.length)throw new HttpError(409,'Month already exists');
+ const currencyRows=await rest(env,`project_monthly_budgets?project_code=eq.${encodeURIComponent(pcode)}&select=currency&limit=1`,{token:user.token});
+ const currency=currencyRows?.[0]?.currency||parent.currency;
  const rows=await rest(env,'project_monthly_budgets?select=period_start,currency,baseline_amount,current_amount,updated_at',{
-  token:user.token,method:'POST',body:{project_code:pcode,period_start:period,currency:'EGP',baseline_amount:null,current_amount:null}});
+  token:user.token,method:'POST',body:{project_code:pcode,period_start:period,currency,baseline_amount:null,current_amount:null}});
  return json({record:rows?.[0]},201);
 })}
