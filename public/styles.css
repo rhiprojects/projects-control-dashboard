@@ -22,3 +22,27 @@
 @media(max-width:930px){.grid-two,.detail-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.form-grid,.grid-two,.detail-fields{grid-template-columns:1fr}.login-card{padding:24px}.form-actions{flex-direction:column}.form-actions .btn{width:100%}}
 @media print{body{background:white!important}.sidebar,.topbar,.pageheader .btn,.no-print,.demo-banner,.status-banner,.signout{display:none!important}.main{margin:0!important}.content{padding:12px!important;max-width:none!important}.card,.panel{box-shadow:none!important;border-color:#ccc!important}.report-sheet{display:block!important}table{font-size:10px}th,td{padding:8px!important}.pageheader{display:block}.pagetitle{font-size:24px}.cards{grid-template-columns:repeat(4,1fr)!important}.projectgrid{grid-template-columns:repeat(2,1fr)!important}}
+
+
+/* Projects AI Assistant, based on the approved dashboard reference. */
+.ai-panel{display:flex;flex-direction:column;min-height:400px;padding:20px 20px 17px;overflow:hidden;background:#fff;border:1px solid #e5edf0;border-radius:18px;box-shadow:0 12px 32px rgba(27,64,76,.035)}
+.ai-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.ai-head h2{margin:0;color:#12262d;font-weight:770;font-size:17px}
+.ai-more{width:38px;height:38px;border-radius:11px;background:#fff;border:1px solid #dde5e9;color:#426170;font-size:21px;line-height:1;cursor:pointer}
+.ai-more:hover{background:#f6f9fa}.ai-chat{flex:1;min-height:218px;max-height:350px;overflow-y:auto;display:flex;flex-direction:column;gap:11px;padding:7px 2px 12px}
+.ai-intro{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;flex:1;text-align:center;padding:4px 2px}
+.ai-orb{width:91px;height:91px;border-radius:50%;background:radial-gradient(circle at 66% 33%,#a5ec73 0,#68cb56 24%,#438f41 49%,#153e39 74%,#9bd44f 100%);box-shadow:inset -15px -10px 20px rgba(21,73,39,.07),inset 10px 9px 16px rgba(10,70,52,.25);position:relative}
+.ai-orb:after{content:"";position:absolute;left:4%;right:2%;top:55%;height:19%;border-radius:50%;background:linear-gradient(180deg,rgba(180,241,131,.26),rgba(45,113,48,.22));filter:blur(5px)}
+.ai-intro h3{font-size:18px;font-weight:770;color:#12262d;margin:0}
+.ai-prompts{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;max-width:570px}
+.ai-chip{background:#fff;color:#70828e;border:1px solid #edf0f3;padding:7px 13px;border-radius:18px;font-size:11px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.025)}
+.ai-chip:hover{color:#26785c;border-color:#c6e8d0;background:#f9fff8}
+.ai-message{display:flex}.ai-message.mine{justify-content:flex-end}.ai-message.reply{justify-content:flex-start}
+.ai-bubble{white-space:pre-wrap;overflow-wrap:anywhere;max-width:92%;background:#f4f7f8;color:#284052;font-size:12.5px;line-height:1.65;border-radius:12px;padding:12px 14px}
+.ai-message.mine .ai-bubble{background:#e4f5da;color:#254e38}
+.ai-thinking{display:flex;gap:5px;padding:14px}.ai-thinking span{height:5px;width:5px;border-radius:50%;background:#74ab79;animation:ai-pulse 1s ease-in-out infinite alternate}.ai-thinking span:nth-child(2){animation-delay:.2s}.ai-thinking span:nth-child(3){animation-delay:.4s}@keyframes ai-pulse{to{opacity:.25;transform:translateY(-3px)}}
+.ai-form{display:flex;gap:12px;align-items:center;border:1px solid #e1e8e9;border-radius:16px;padding:12px 13px;background:#fdfefe;flex-shrink:0}
+.ai-plus{font-size:17px;color:#8faaaa;line-height:1}.ai-form input{background:#fff;border:1px solid #d9e4e9;color:#263e55;border-radius:12px;font-size:12px;min-width:0;flex:1;padding:13px 14px;outline:0}
+.ai-form input:focus{border-color:#7bc9b4;box-shadow:0 0 0 2px rgba(105,200,172,.12)}
+.ai-send{border:0;background:#c9f2b7;border-radius:25px;color:#647c68;font-weight:750;font-size:12px;cursor:pointer;white-space:nowrap;padding:14px 22px}.ai-send:hover:not(:disabled){background:#aceb94;color:#315c41}.ai-send:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:1180px){.ai-panel{min-height:390px}.ai-orb{width:76px;height:76px}}
+@media(max-width:780px){.ai-panel{min-height:390px}.ai-form{padding:9px;gap:7px}.ai-send{padding:12px}.ai-form input{padding:12px 9px}}
