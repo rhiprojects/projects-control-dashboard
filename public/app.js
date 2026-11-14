@@ -57,7 +57,7 @@ const active=()=>projects.filter(p=>p.status==='Active');
 const sumFor=(currency)=>active().filter(p=>p.contractCurrency===currency&&p.contractValue!==null).reduce((sum,p)=>sum+p.contractValue,0);
 const missing=(field)=>active().filter(p=>p[field]===null).length;
 function projectCard(p){return `<div class="card projectcard"><div class="projecttop"><div><div class="projectid">Project ${h(p.id)}</div><h3 class="projectname">${h(p.displayName||p.client||p.name)}</h3><p class="projectclient">${h(p.name)}</p></div><span class="pill ${p.status==='Active'?'green':'neutral'}">${h(p.status||'Not supplied')}</span></div><div class="projectstats"><span>Contract Value</span><strong>${fmt(p.contractValue)} ${h(p.contractCurrency||'')}</strong></div><div class="projectfoot"><span>Physical progress: <strong>${p.progress===null?'Not Recorded':h(p.progress)+'%'}</strong></span><button class="btn small" data-project="${h(p.id)}">Open Project</button></div></div>`}
-function render(){ROOT.innerHTML=!me?loginView():layout(creatingV4?createV4():chosen?(edit?editProjectV4():projectViewV4()):page==='overview'?overviewV4():page==='projects'?projectListV4():page==='financials'?financePageV4():page==='milestones'?milestonesPageV4():page==='reports'?reportPageV4():page==='admin'?adminPageV4():overviewV4());v7RenderCharts()}
+function render(){if(window.echarts){ROOT.querySelectorAll('.v7-chart').forEach(el=>{const chart=window.echarts.getInstanceByDom(el);if(chart)chart.dispose();});}ROOT.innerHTML=!me?loginView():layout(creatingV4?createV4():chosen?(edit?editProjectV4():projectViewV4()):page==='overview'?overviewV4():page==='projects'?projectListV4():page==='financials'?financePageV4():page==='milestones'?milestonesPageV4():page==='reports'?reportPageV4():page==='admin'?adminPageV4():overviewV4());v7RenderCharts()}
 function clearToast(){error='';notice=''}
 ROOT.addEventListener('click',async e=>{
  const el=e.target.closest('button');if(!el)return;
@@ -150,8 +150,10 @@ async function v7RenderCharts(){
     series:data.series.map((x,i)=>({name:x.name,type:data.kind==='line'?'line':'bar',data:x.values,smooth:false,barMaxWidth:36,itemStyle:{color:['#0f766e','#3268b5','#a76e0b','#64748b'][i%4]}}))
    };
    chart.setOption(option);
-   const observer=new ResizeObserver(()=>{if(el.isConnected)chart.resize();else{observer.disconnect();chart.dispose()}});
-   observer.observe(el);
+   if(typeof ResizeObserver==='function'){
+    const observer=new ResizeObserver(()=>{if(el.isConnected)chart.resize();else{observer.disconnect();chart.dispose()}});
+    observer.observe(el);
+   }
   }catch(e){el.textContent='Chart unavailable; detailed figures remain accessible in the tables.';}
  });
 }
