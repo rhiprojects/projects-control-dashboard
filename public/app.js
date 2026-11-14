@@ -223,6 +223,47 @@ function milestones(){return heading('Delivery','Projects and schedules','Curren
 function report(){let scoped=reportCode==='all'?projects:projects.filter(p=>p.id===reportCode);return heading('Reporting','Portfolio report','Print or save a PDF from the current authenticated project records.',`<button class="btn primary" data-action="print">${ico('download')} Print / Save PDF</button><button class="btn" data-action="email">Prepare email draft</button>`)+`<section class="card panel no-print" style="margin-bottom:18px"><label class="sup-label" for="report-code">Report scope</label><select id="report-code" class="select-owner" style="display:block;margin-top:8px"><option value="all">${lead()?'Entire accessible portfolio':'All my assigned projects'}</option>${projects.map(p=>`<option value="${h(p.id)}" ${reportCode===p.id?'selected':''}>${h(p.id)} · ${h(p.client)}</option>`).join('')}</select><p class="source-line">Automatic email delivery and PDF attachments are not connected. Preparing an email draft does not send it.</p></section><section class="card panel report-sheet"><div class="eyebrow">Projects Control · Authorized report</div><h2 style="margin:7px 0 7px">${reportCode==='all'?'Project portfolio':h(scoped[0]?.client||'Project')}</h2><p class="source-line">Prepared: ${new Date().toLocaleString('en-GB')} · Issued for ${h(me.displayName)} (${h(roleName[me.role])}) · Currency amounts are not combined across denominations.</p><div class="table-wrap"><table><thead><tr><th>Project</th><th>Client</th><th>Value</th><th>Progress</th><th>Status</th></tr></thead><tbody>${scoped.map(p=>`<tr><td>${h(p.id)}</td><td>${h(p.client)}</td><td>${fmt(p.contractValue)} ${h(p.contractCurrency||'')}</td><td>${p.progress===null?'—':h(p.progress)+'%'}</td><td>${h(p.status||'—')}</td></tr>`).join('')}</tbody></table></div><p class="source-line" style="margin-top:15px">Source: Supabase ongoing-projects register. This is not a certified financial statement. Invoice, collections and monthly actuals are not yet mapped.</p></section>`}
 function administration(){if(!admin())return overview();const users=adminData.users;const ownerOf=code=>{const a=adminData.assignments.filter(x=>x.project_code===code);return a.map(x=>users.find(u=>u.user_id===x.user_id)?.display_name||'Unknown user').join(', ')||'Unassigned'};return heading('Administration','Dashboard access','Profiles and assignments from Supabase; role and assignment edits are not activated in this phase.')+`<div class="cards">${kpi('Project records',String(projects.length),'Visible to Super Admin')}${kpi('User profiles',String(users.length),'Login activation pending')}${kpi('Team members',String(users.filter(x=>x.role==='team_member').length),'Confirmed profiles')}${kpi('Unassigned projects',String(projects.filter(p=>ownerOf(p.id)==='Unassigned').length),'No team-level access')}</div><div class="card tablecard"><div class="tablehead"><div><h2 class="paneltitle">Project assignments</h2><p class="panelmeta">Hassan and Super Admin can see all projects. Mohamed sees only 736 and 776 after Auth activation.</p></div></div><div class="table-wrap"><table><thead><tr><th>Code</th><th>Client</th><th>Team member</th></tr></thead><tbody>${projects.map(p=>`<tr><td>${h(p.id)}</td><td>${h(p.client)}</td><td>${h(ownerOf(p.id))}</td></tr>`).join('')}</tbody></table></div></div><div class="read-only-note" style="margin-top:18px">No Super Admin login has been activated yet. Role security is enforced by Supabase RLS, not by a browser role selector.</div>`}
 function render(){ROOT.innerHTML=!me?loginView():layout(creating?newProjectView():chosen?(edit?editView():detail()):page==='overview'?overview():page==='projects'?projectsPage():page==='financials'?finance():page==='milestones'?milestones():page==='reports'?report():page==='admin'?administration():overview())}
+async function createProjectFromForm(form){
+ if(busy)return;
+ const f=new FormData(form);
+ if(numberDraft&&!f.get('confirmNumbers'))throw Error('Review and confirm the proposed figures before creating the project.');
+ const body={projectCode:String(f.get('projectCode')||'').trim(),client:String(f.get('client')||'').trim(),scope:String(f.get('scope')||'').trim(),currency:String(f.get('currency')||''),contractValue:Number(f.get('contractValue')),location:String(f.get('location')||''),plannedStart:f.get('plannedStart')||null,plannedFinish:f.get('plannedFinish')||null,durationMonths:f.get('durationMonths')?Number(f.get('durationMonths')):null};
+ busy=true;
+ try{
+  const result=await api('/api/projects',{method:'POST',body});
+  const project=result.project.id,warnings=[];
+  if(uploadedContract){try{await uploadDocument(project,'contract',uploadedContract)}catch(e){warnings.push('Contract upload: '+e.message)}}
+  if(uploadedNumbers){try{await uploadDocument(project,'project_numbers',uploadedNumbers)}catch(e){warnings.push('Project Numbers upload: '+e.message)}}
+  if(numberDraft?.monthlyBudgets?.length&&f.get('confirmNumbers')){
+   let inserted=0;
+   for(const m of numberDraft.monthlyBudgets){try{await api('/api/finance',{method:'POST',body:{action:'add_period',projectCode:project,period:m.period,amount:m.amount,currency:m.currency||body.currency}});inserted++;}catch(e){warnings.push('Budget '+m.period+': '+e.message);}}
+  }
+  creating=false;uploadedContract=null;uploadedNumbers=null;numberDraft=null;newProjectInputs={};busy=false;
+  await reload();await openProject(project);
+  showNotice(warnings.length?`Project ${project} created. ${warnings.join(' | ')}`:`Project ${project} created.`);
+ }catch(err){busy=false;setError(err)}
+}
+async function submitBudgetForm(form){
+ const p=fromProject(chosen);if(!p)throw Error('Select a project');
+ const data=new FormData(form),v=data.get('amount'),type=data.get('type');
+ const body=type==='line'?{action:'update_line',projectCode:p.id,id:budgetEdit?.id,amount:v}:{action:'update_budget',projectCode:p.id,period:budgetEdit?.period,amount:v};
+ await api('/api/finance',{method:'POST',body});budgetEdit=null;await loadFinance(p.id);render();
+}
+async function submitExtension(form){
+ const p=fromProject(chosen);if(!p)throw Error('Select a project');
+ const values=new FormData(form),changes={durationMonths:Number(values.get('durationMonths'))};
+ const revised=String(values.get('forecastFinish')||'');if(revised)changes.forecastFinish=revised;
+ const result=await api('/api/projects/'+encodeURIComponent(p.id),{method:'PUT',body:{lastEdited:p.lastEdited,changes}});
+ const idx=projects.findIndex(x=>x.id===p.id);if(idx>=0)projects[idx]=result.project;render();
+}
+async function submitDocUpload(form){
+ const p=fromProject(chosen);if(!p)throw Error('Select a project');
+ const contract=form.elements.namedItem('contract')?.files?.[0],numbers=form.elements.namedItem('project_numbers')?.files?.[0];
+ if(!contract&&!numbers)throw Error('Choose a contract or Project Numbers file');
+ if(contract)await uploadDocument(p.id,'contract',contract);
+ if(numbers)await uploadDocument(p.id,'project_numbers',numbers);
+ await loadDocuments(p.id);render();
+}
 function clearToast(){error='';notice=''}
 ROOT.addEventListener('click',async e=>{
  const el=e.target.closest('button');if(!el)return;
@@ -246,12 +287,24 @@ ROOT.addEventListener('click',async e=>{
 });
 ROOT.addEventListener('input',e=>{if(e.target.id==='project-search'){filter=e.target.value;render();const inp=$('#project-search');if(inp){inp.focus();inp.setSelectionRange(filter.length,filter.length)}}});
 ROOT.addEventListener('change',async e=>{
- if(e.target.id==='report-code'){reportCode=e.target.value;render();return}
+ if(e.target.id==='new-project-numbers'){
+   const form=e.target.closest('form');if(form)for(const [k,v] of new FormData(form))if(typeof v==='string')newProjectInputs[k]=v;
+   uploadedNumbers=e.target.files?.[0]||null;numberDraft=null;
+   if(uploadedNumbers){try{numberDraft=await extractProjectNumbers(uploadedNumbers);for(const [key,value] of Object.entries(numberDraft.fields||{})){if(!newProjectInputs[key])newProjectInputs[key]=String(value);}}catch(err){numberDraft={fields:{},monthlyBudgets:[],note:'The file can be attached, but its numbers could not be identified automatically. Enter them manually.'};}}
+   render();return
+ }
+ if(e.target.name==='contract'&&e.target.closest('#new-project-form')){uploadedContract=e.target.files?.[0]||null;return}
+if(e.target.id==='report-code'){reportCode=e.target.value;render();return}
 
 });
 ROOT.addEventListener('submit',async e=>{
- if(!['login-form','edit-form','ai-form'].includes(e.target.id))return;e.preventDefault();clearToast();
+ if(!['login-form','edit-form','ai-form','new-project-form','project-document-form','budget-edit-form','add-budget-month-form','extension-form'].includes(e.target.id))return;e.preventDefault();clearToast();
  if(e.target.id==='login-form'){const f=new FormData(e.target);try{await login(String(f.get('email')||'').trim(),String(f.get('password')||''));render()}catch(err){setError(err)}return}
+ if(e.target.id==='new-project-form'){await createProjectFromForm(e.target);return}
+ if(e.target.id==='project-document-form'){try{await submitDocUpload(e.target);showNotice('Documents uploaded.')}catch(err){setError(err)}return}
+ if(e.target.id==='budget-edit-form'){try{await submitBudgetForm(e.target);showNotice('Financial figure updated.')}catch(err){setError(err)}return}
+ if(e.target.id==='add-budget-month-form'){try{const p=fromProject(chosen),m=String(new FormData(e.target).get('period')||'');await api('/api/finance',{method:'POST',body:{action:'add_period',projectCode:p.id,period:m+'-01',currency:'EGP'}});await loadFinance(p.id);showNotice('Budget period added; no amount has been assumed.')}catch(err){setError(err)}return}
+ if(e.target.id==='extension-form'){try{await submitExtension(e.target);showNotice('Project duration updated. Add budget months separately if required.')}catch(err){setError(err)}return}
  if(e.target.id==='ai-form'){askAssistant(String(new FormData(e.target).get('question')||''));return}
  if(e.target.id==='edit-form'){
   const p=fromProject(chosen);if(!p)return;
