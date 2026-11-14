@@ -8,6 +8,7 @@ const val=(v)=>v===null||v===undefined?'—':h(v);
 const date=(d)=>d?new Date(d).toLocaleDateString('en-GB'):'—';
 const roleName={super_admin:'Super Admin',head_of_projects:'Head of Projects',team_member:'Team Member'};
 const ico=(name)=>({grid:'▦',projects:'▣',chart:'▥',calendar:'▤',reports:'▧',assistant:'◎',admin:'⚙',logout:'↪',back:'‹',edit:'✎',refresh:'↻',shield:'◈',info:'ⓘ',download:'⇩'}[name]||'•');
+let dashboardV5={budgetLines:[],actuals:[],assignments:[],people:[]};
 let cfg=null,auth=null,me=null,projects=[],adminData={users:[],assignments:[]},page='overview',chosen=null,edit=false,busy=false,error='',notice='',filter='',reportCode='all',question='',answer='';
 const lead=()=>me?.role==='super_admin'||me?.role==='head_of_projects';
 const admin=()=>me?.role==='super_admin';
@@ -20,7 +21,7 @@ async function init(){
  render();
 }
 const saveAuth=()=>{if(auth)sessionStorage.setItem('projectsControlSession',JSON.stringify(auth));else sessionStorage.removeItem('projectsControlSession')};
-function logout(refresh=true){auth=null;me=null;projects=[];adminData={users:[],assignments:[]};page='overview';chosen=null;edit=false;chatV4=[];detailsV4=null;creatingV4=false;pendingV4=null;suggestionsV4={};saveAuth();if(refresh)render()}
+function logout(refresh=true){auth=null;me=null;projects=[];dashboardV5={budgetLines:[],actuals:[],assignments:[],people:[]};adminData={users:[],assignments:[]};page='overview';chosen=null;edit=false;chatV4=[];detailsV4=null;creatingV4=false;pendingV4=null;suggestionsV4={};saveAuth();if(refresh)render()}
 async function refreshToken(){if(!auth?.refresh_token)return false;
  const r=await fetch(cfg.supabaseUrl+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:cfg.publishableKey,'content-type':'application/json'},body:JSON.stringify({refresh_token:auth.refresh_token})});
  if(!r.ok){logout(false);return false}auth=await r.json();saveAuth();return true;
@@ -39,8 +40,9 @@ async function login(email,password){
  if(!r.ok||!v.access_token)throw Error('Sign-in failed. Check your email, password and account activation.');
  chatV4=[];detailsV4=null;pendingV4=null;auth=v;saveAuth();try{await ready()}catch(e){logout(false);throw e}
 }
-async function ready(){const s=await api('/api/session');me=s;const r=await api('/api/projects');projects=r.projects||[];if(admin())await loadAdmin();}
-async function reload(){const r=await api('/api/projects');projects=r.projects||[];if(chosen&&!fromProject(chosen))chosen=null; if(admin())await loadAdmin();render()}
+async function ready(){const s=await api('/api/session');me=s;const r=await api('/api/projects');projects=r.projects||[];await loadDashboardV5();if(admin())await loadAdmin();}
+async function loadDashboardV5(){dashboardV5=await api('/api/dashboard');}
+async function reload(){const r=await api('/api/projects');projects=r.projects||[];await loadDashboardV5();if(chosen&&!fromProject(chosen))chosen=null; if(admin())await loadAdmin();render()}
 async function loadAdmin(){adminData=await api('/api/admin/users')}
 function setError(err){error=String(err?.message||err||'Unknown error');notice='';render()}
 function showNotice(msg){error='';notice=msg;render()}
@@ -49,7 +51,7 @@ const nav=[['overview','grid','Overview'],['projects','projects','Projects'],['f
 function layout(content){const name=h(me.displayName),today=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'long',year:'numeric'});
  return `<div class="app"><aside class="sidebar"><div class="brand"><span class="brandmark">P</span><div class="brandname">Projects Control<small>MANAGEMENT PORTAL</small></div></div><span class="sidecaption">WORKSPACE</span><nav class="nav">${nav.filter(x=>x[0]!=='admin'||admin()).map(([key,icon,title])=>`<button class="${page===key?'active':''}" data-page="${key}"><span style="display:inline-block;width:18px;font-size:17px;text-align:center">${ico(icon)}</span>${title}${key==='projects'?`<span class="num">${projects.length}</span>`:''}</button>`).join('')}</nav><div class="sidebottom"><span class="online"></span><strong>Secure session</strong><small>${name}<br>${h(roleName[me.role])}</small><button class="signout" data-action="logout">Sign out</button></div></aside><main class="main"><header class="topbar"><div class="breadcrumbs"><span>Projects Control</span><span>›</span><strong>${h(nav.find(n=>n[0]===page)?.[2]||'Projects')}</strong></div><div class="topactions"><span class="topdate">${h(today)}</span><span class="role-label">${h(roleName[me.role])}</span><span class="avatar">${h((me.displayName||'P').split(' ').map(x=>x[0]).slice(0,2).join('').toUpperCase())}</span></div></header><div class="content">${error?`<div class="error-box" role="alert">${h(error)}</div>`:''}${notice?`<div class="okay-box" role="status" style="margin-bottom:18px">${h(notice)}</div>`:''}${content}</div></main></div>`}
 const heading=(eye,title,subtitle,buttons='')=>`<div class="pageheader"><div><div class="eyebrow">${h(eye)}</div><h1 class="pagetitle">${h(title)}</h1><p class="subtitle">${h(subtitle)}</p></div><div class="meta-row no-print">${buttons}</div></div>`;
-const kpi=(label,value,note,variant='')=>`<div class="card kpi"><div class="kpi-top"><span class="kpi-label">${h(label)}</span><span class="kpi-icon ${variant}">▦</span></div><div class="kpi-value">${h(value)}</div><div class="kpi-note">${h(note)}</div></div>`;
+const kpi=(label,value,note,variant='',symbol='▦')=>`<div class="card kpi"><div class="kpi-top"><span class="kpi-label">${h(label)}</span><span class="kpi-icon ${variant}" aria-hidden="true">${symbol}</span></div><div class="kpi-value">${h(value)}</div><div class="kpi-note">${h(note)}</div></div>`;
 const active=()=>projects.filter(p=>p.status==='Active');
 const sumFor=(currency)=>active().filter(p=>p.contractCurrency===currency&&p.contractValue!==null).reduce((sum,p)=>sum+p.contractValue,0);
 const missing=(field)=>active().filter(p=>p[field]===null).length;
@@ -92,9 +94,50 @@ function aiPanelV4(){
  return `<section class="card ai-card-v4"><div class="ai-top-v4"><h2>AI Assistant</h2><button title="Clear chat" class="ai-menu-v4" data-v4="clear">⋮</button></div><div class="ai-orb-v4"></div><h3 class="ai-heading-v4">What can I help with?</h3><div class="ai-topics-v4">${topics.map(([label,question])=>`<button type="button" data-v4="prompt" data-question="${h(question)}">${label}</button>`).join("")}</div>${chatV4.length?`<div class="ai-chat-v4">${chatV4.map(x=>`<p class="${x.role==='user'?'my-question':''}">${h(x.content)}</p>`).join('')}</div>`:''}<form id="ai-v4" class="ai-input-v4"><span>✣</span><input name="question" placeholder="Ask anything about your projects..." maxlength="1600" required><button ${chatBusyV4?'disabled':''}>↑ Send</button></form></section>`;
 }
 
+
+const v5Number=x=>x===null||x===undefined||x===''?null:(Number.isFinite(Number(x))?Number(x):null);
+const v5Money=(amount,currency)=>amount===null?'Not Recorded':fmt(amount)+' '+h(currency||'');
+const v5Rows=id=>(dashboardV5.budgetLines||[]).filter(x=>x.project_code===id&&String(x.period_start).startsWith('2027-'));
+function v5Health(id,currency){
+ const rows=(dashboardV5.actuals||[]).filter(x=>x.project_code===id&&x.currency===currency);
+ const revenue=rows.filter(x=>String(x.account_name).trim().toLowerCase()==='revenue');
+ const cogs=rows.filter(x=>String(x.account_name).trim().toLowerCase()==='cogs');
+ if(!revenue.length||!cogs.length||rows.some(x=>v5Number(x.amount)===null))return null;
+ const margin=revenue.reduce((n,r)=>n+Number(r.amount),0)-cogs.reduce((n,r)=>n+Number(r.amount),0);
+ return {margin,direction:margin>=0?'up':'down'};
+}
+function v5Arrow(p){
+ const result=v5Health(p.id,p.contractCurrency);
+ return result?'<span class="v5-trend '+result.direction+'" title="Recorded P&L margin: '+h(fmt(result.margin))+' '+h(p.contractCurrency)+'" aria-label="'+(result.direction==='up'?'Positive':'Negative')+' recorded margin">'+(result.direction==='up'?'↗':'↘')+'</span>':'<span class="v5-trend unavailable" title="Margin unavailable until Revenue and COGS actuals are recorded and mapped" aria-label="Financial margin unavailable">—</span>';
+}
+function v5FinancialPanel(p){
+ const lines=v5Rows(p.id),currency=p.contractCurrency;
+ const valid=lines.filter(x=>x.currency===currency&&v5Number(x.baseline_amount)!==null);
+ const categories=[...new Set(valid.map(x=>x.category))];
+ const totals=categories.map(category=>({category,amount:valid.filter(x=>x.category===category).reduce((n,x)=>n+Number(x.baseline_amount),0)}));
+ const total=valid.reduce((n,x)=>n+Number(x.baseline_amount),0), maximum=Math.max(1,...totals.map(x=>x.amount));
+ const working=lines.filter(x=>x.currency===currency&&v5Number(x.current_amount)!==null);
+ const current=working.reduce((n,x)=>n+Number(x.current_amount),0);
+ const health=v5Health(p.id,currency);
+ const monthly=[...new Set(valid.map(x=>x.period_start))].sort().map(month=>({month,amount:valid.filter(x=>x.period_start===month).reduce((n,x)=>n+Number(x.baseline_amount),0)}));
+ return '<section class="card panel v4-section v5-financial" aria-label="Financial analysis"><h2 class="paneltitle">Project Financial Analysis</h2><p class="v5-context">2027 approved budget COGS. Contract amounts and historical actuals are separate figures.</p>'+
+ '<div class="v5-metrics"><div><small>Contract Value</small><strong>'+v5Money(p.contractValue,currency)+'</strong></div><div><small>2027 Approved COGS</small><strong>'+v5Money(valid.length?total:null,currency)+'</strong></div><div><small>2027 Working COGS</small><strong>'+v5Money(working.length?current:null,currency)+'</strong></div><div><small>Recorded P&amp;L Margin</small><strong>'+v5Money(health?.margin??null,currency)+'</strong></div></div>'+
+ '<div class="v5-analysis-grid"><div><h3>COGS By Category</h3>'+ (totals.length?totals.map(x=>'<div class="v5-bar-row"><div><span>'+h(x.category)+'</span><strong>'+fmt(x.amount)+' '+h(currency)+'</strong></div><div class="v5-track"><i style="width:'+Math.max(0,Math.min(100,x.amount/maximum*100))+'%"></i></div></div>').join(''):'<p>No approved 2027 COGS recorded in the contract currency.</p>')+'</div><div><h3>2027 Monthly COGS</h3>'+(monthly.length?'<div class="table-wrap"><table><thead><tr><th>Month</th><th>Approved COGS</th></tr></thead><tbody>'+monthly.map(x=>'<tr><td>'+h(x.month.slice(0,7))+'</td><td>'+fmt(x.amount)+' '+h(currency)+'</td></tr>').join('')+'</tbody></table></div>':'<p>No approved 2027 monthly COGS recorded.</p>')+'</div></div></section>';
+}
+function v5TeamPanel(){
+ if(!lead())return '';
+ const people=(dashboardV5.people||[]).filter(x=>x.active&&x.role==='team_member');
+ const assignments=(dashboardV5.assignments||[]).filter(x=>projects.some(p=>p.id===x.project_code));
+ return '<section class="card panel v4-section"><h2 class="paneltitle">Team Workload</h2><p class="v5-context">Project assignment counts, not hours or utilization. Only your accessible projects are included.</p>'+
+ (people.length?'<div class="v5-team-grid">'+people.map(u=>{const codes=[...new Set(assignments.filter(x=>x.user_id===u.id).map(x=>x.project_code))];return '<div class="v5-team-row"><strong>'+h(u.display_name)+'</strong><span>'+codes.length+' '+(codes.length===1?'Project':'Projects')+'</span><small>'+h(codes.join(', ')||'Unassigned')+'</small></div>'}).join('')+'</div>':'<p>No active team members are available.</p>')+'</section>';
+}
+function v5Portfolio(){
+ return '<section class="card panel v4-section"><div class="panelhead"><h2 class="paneltitle">Project Financial Overview</h2></div><div class="v5-portfolio-grid">'+active().map(p=>'<div class="v5-portfolio-item"><div><strong>'+h(p.id)+' · '+h(p.displayName||p.client)+'</strong>'+v5Arrow(p)+'</div><small>2027 Approved COGS · '+h(p.contractCurrency)+'</small><strong>'+v5Money((()=>{const a=v5Rows(p.id).filter(x=>x.currency===p.contractCurrency&&v5Number(x.baseline_amount)!==null);return a.length?a.reduce((n,x)=>n+Number(x.baseline_amount),0):null})(),p.contractCurrency)+'</strong><button class="btn small" data-project="'+h(p.id)+'">View Financial Analysis</button></div>').join('')+'</div></section>';
+}
+
 function overviewV4(){
- return heading("Overview",me.role==="head_of_projects"?"Good evening, Hassan":`Welcome, ${h(me.displayName.split(' ')[0])}`,"Your projects at a glance.",'<button class="btn" data-action="reload">↻ Refresh</button>')+
- `<div class="cards">${kpi('Active projects',String(active().length),'Projects')}${kpi('Signed contracts · EGP',fmt(sumFor('EGP')),'EGP','blue')}${kpi('Signed contracts · USD',fmt(sumFor('USD')),'USD')}${kpi('Progress not recorded',String(missing('progress')),'Projects','amber')}</div><div class="grid-two v4-grid"><section class="card panel"><div class="panelhead"><h2 class="paneltitle">Your active projects</h2><button class="btn small" data-page="projects">View all</button></div><ul class="list-naked">${active().map(p=>`<li><div><button class="plink" data-project="${h(p.id)}">${h(p.id)} · ${h(p.displayName||p.client)}</button><span class="subline">${h(p.status)} · ${h(p.contractCurrency)}</span></div><span class="pill neutral">${p.progress===null?'—':p.progress+'%'}</span></li>`).join('')}</ul></section>${aiPanelV4()}</div>`;
+ return heading("Overview",me.role==="head_of_projects"?`Good Evening ${me.displayName.split(' ')[0]}`:`Welcome, ${me.displayName.split(' ')[0]}`,"Your projects at a glance.",'<button class="btn" data-action="reload">↻ Refresh</button>')+
+ `<div class="cards">${kpi('Active Projects',String(active().length),'Projects','','▣')}${kpi('Signed Contracts · EGP',fmt(sumFor('EGP')),'EGP','blue','▤')}${kpi('Signed Contracts · USD',fmt(sumFor('USD')),'USD','','＄')}${kpi('Progress Not Recorded',String(missing('progress')),'Projects','amber','◷')}</div><div class="grid-two v4-grid"><section class="card panel"><div class="panelhead"><h2 class="paneltitle">Your Active Projects</h2><button class="btn small" data-page="projects">View all</button></div><ul class="list-naked">${active().map(p=>`<li><div><button class="plink" data-project="${h(p.id)}">${h(p.id)} · ${h(p.displayName||p.client)}</button><span class="subline">${h(p.status)} · ${h(p.contractCurrency)}</span></div>${v5Arrow(p)}</li>`).join('')}</ul></section>${aiPanelV4()}</div>${v5TeamPanel()}${v5Portfolio()}`;
 }
 
 function createV4(){
@@ -114,7 +157,7 @@ function projectViewV4(){
  <form id="assign-v4" class="v4-inline"><label>Assign Team Member
  <select name="userId" required><option value="">Select employee</option>${(d?.people||[]).filter(u=>u.role==='team_member'&&!(d?.assignments||[]).some(a=>a.user_id===u.id)).map(u=>`<option value="${h(u.id)}">${h(u.display_name)}</option>`).join('')}</select></label>
  <button class="btn" type="submit">Assign</button></form></section>`:''}
- <section class="card panel v4-section"><h2 class="paneltitle">Monthly budget</h2>${totals.length?`<div class="table-wrap"><table><thead><tr><th>Period</th><th>Currency</th><th>Approved</th><th>Working budget</th><th></th></tr></thead><tbody>${totals.map(r=>`<tr><td>${h(r.period_start)}</td><td>${h(r.currency)}</td><td>${fmt(r.baseline_amount===null?null:Number(r.baseline_amount))}</td><td><input class="v4-amount" data-money="monthly-${h(r.period_start)}" type="number" step="0.01" value="${r.current_amount??''}"></td><td><button class="btn small" data-v4="save-money" data-kind="monthly" data-entry="${h(r.period_start)}" data-updated="${h(r.updated_at)}">Save</button></td></tr>`).join('')}</tbody></table></div>`:'<p>No budget entered.</p>'}<form id="add-period-v4" class="v4-inline"><label>Add month or year <input type="month" name="period" required></label><button class="btn">Add month</button></form></section>
+ ${v5FinancialPanel(p)}<section class="card panel v4-section"><h2 class="paneltitle">Monthly Budget</h2>${totals.length?`<div class="table-wrap"><table><thead><tr><th>Period</th><th>Currency</th><th>Approved</th><th>Working budget</th><th></th></tr></thead><tbody>${totals.map(r=>`<tr><td>${h(r.period_start)}</td><td>${h(r.currency)}</td><td>${fmt(r.baseline_amount===null?null:Number(r.baseline_amount))}</td><td><input class="v4-amount" data-money="monthly-${h(r.period_start)}" type="number" step="0.01" value="${r.current_amount??''}"></td><td><button class="btn small" data-v4="save-money" data-kind="monthly" data-entry="${h(r.period_start)}" data-updated="${h(r.updated_at)}">Save</button></td></tr>`).join('')}</tbody></table></div>`:'<p>No budget entered.</p>'}<form id="add-period-v4" class="v4-inline"><label>Add month or year <input type="month" name="period" required></label><button class="btn">Add month</button></form></section>
  <section class="card panel v4-section"><h2 class="paneltitle">Detailed budget &amp; COGS</h2>${lines.length?`<details><summary>View ${lines.length} budget entries</summary><div class="table-wrap v4-scroll"><table><thead><tr><th>Period</th><th>Category</th><th>Detail</th><th>Approved</th><th>Working</th><th></th></tr></thead><tbody>${lines.map(r=>`<tr><td>${h(r.period_start)}</td><td>${h(r.category)}</td><td>${h(r.detail)}</td><td>${fmt(r.baseline_amount===null?null:Number(r.baseline_amount))} ${h(r.currency)}</td><td><input class="v4-amount" data-money="line-${r.id}" type="number" step="0.01" value="${r.current_amount??''}"></td><td><button class="btn small" data-v4="save-money" data-kind="line" data-entry="${r.id}" data-updated="${h(r.updated_at)}">Save</button></td></tr>`).join('')}</tbody></table></div></details>`:'<p>No cost details entered.</p>'}</section>
  <section class="card panel v4-section"><h2 class="paneltitle">Historical P&amp;L actuals</h2>${actuals.length?`<div class="table-wrap"><table><thead><tr><th>Period</th><th>Account</th><th>Currency</th><th>Amount</th><th></th></tr></thead><tbody>${actuals.map(r=>`<tr><td>${h(r.period_start)}</td><td>${h(r.account_name)}</td><td>${h(r.currency)}</td><td>${lead()?`<input class="v4-amount" data-money="actual-${r.id}" type="number" step="0.01" value="${r.amount}">`:fmt(Number(r.amount))}</td><td>${lead()?`<button class="btn small" data-v4="save-money" data-kind="actual" data-entry="${r.id}" data-updated="${h(r.updated_at)}">Save</button>`:''}</td></tr>`).join('')}</tbody></table></div>`:'<p>No historical P&amp;L actuals recorded.</p>'}</section>
  <section class="card panel v4-section"><h2 class="paneltitle">Contract</h2>${docs.filter(x=>x.document_type==='contract').map(x=>`<div class="v4-file"><strong>${h(x.original_name)}</strong>${x.preview_pdf_path?`<button class="btn small" data-v4="pdf" data-doc="${h(x.id)}">View PDF</button>`:''}<button class="btn small" data-v4="file" data-doc="${h(x.id)}">Download</button></div>`).join('')||'<p>No contract attached.</p>'}<form id="contract-v4" class="v4-inline"><input name="file" type="file" accept=".pdf,.doc,.docx" required><button class="btn">Upload contract</button></form>
