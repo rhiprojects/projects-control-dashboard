@@ -58,6 +58,19 @@ function directAnswer(question,view,allProjects,people,assignments){
  }
  if(/(?:list|show|which|what are|names of)\s+(?:all\s+|my\s+|the\s+)?projects?\b/.test(q)&&!kind.finance&&!kind.team)
   return 'Projects available in your portal: '+allProjects.map(p=>p.project_code+' — '+(p.project_code==='776'?'Slag Mill KSA (RICG)':p.client)).join('; ')+'.';
+ if(kind.finance&&/actual|recorded|profit|revenue|margin|p&l/.test(q)){
+   const entries=view.flatMap(x=>x.actuals.map(r=>({code:x.project.code,...r})));
+   if(!entries.length)return 'Recorded financial actuals for the requested project or projects are not currently present in the portal.';
+ }
+ if(kind.finance&&!group&&/budget|cost|cogs|financ|project.*amount/.test(q)&&!kind.team){
+   return '2027 projected project budgets (approved / working, by project and budget currency):\\n'+view.map(({project:p})=>p.code+' — '+p.name+': '+money(p.budget_2027_approved,p.budget_2027_currency)+' / '+money(p.budget_2027_working,p.budget_2027_currency)).join('\\n')+'. These are budgets, not actual P&L.';
+ }
+ if(kind.schedule&&!group&&/start|finish|end|deadline|schedule/.test(q)){
+   return 'Recorded project schedule:\\n'+view.map(({project:p})=>p.code+' — '+p.name+': planned start '+emptyIfMissing(p.planned_start)+'; planned finish '+emptyIfMissing(p.planned_finish)+'; forecast finish '+emptyIfMissing(p.forecast_finish)).join('\\n');
+ }
+ if(kind.location&&!group&&!kind.finance&&!kind.contract){
+   return 'Recorded project locations:\\n'+view.map(({project:p})=>p.code+' — '+p.name+': '+emptyIfMissing(p.location)).join('\\n');
+ }
  if(kind.clause&&!view.some(x=>x.contracts.some(c=>c.text))){
   return 'The contract clauses or extracted contract text needed to answer that question are not currently present in the portal. Project register details may still be available.';
  }
@@ -68,7 +81,7 @@ function directAnswer(question,view,allProjects,people,assignments){
   if(named.length){
    return named.map(u=>{const codes=assigned(u);return u.display_name+': '+(codes.length?codes.length+' assigned project(s): '+codes.join(', '):'No project assignments are recorded in your accessible projects.')}).join('\n');
   }
-  if(/workload|team members|team assignments|who (is|are) (on|assigned)|what.*team.*holding|which.*team.*hold/.test(q)&&all.length){
+  if(/workload|team members|team assignments|who (is|are) (on|assigned)|what.*team.*holding|which.*team.*hold|who.*responsib|who.*handling|teammates|what.*team.*work/.test(q)&&all.length){
    return all.map(u=>{const codes=assigned(u);return u.display_name+': '+codes.length+' assigned project(s)'+(codes.length?' ('+codes.join(', ')+')':'')}).join('\n');
   }
  }
