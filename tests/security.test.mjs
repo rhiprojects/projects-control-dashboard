@@ -57,3 +57,16 @@ test('non-admin cannot list users',async()=>{
  mock();const res=await adminUsers({request:request(),env});assert.equal(res.status,403);
 });
 test('no Notion dependencies in source data parser',()=>{const p=toProject(rows[0]);assert.equal(p.id,'736');assert.equal(p.progress,null);assert.equal(p.sourceTotalProgress,200)});
+
+test('Cloudflare Pages outbound fetch uses supported redirect mode',async()=>{
+ const calls=mock();const res=await getProjects({request:request(),env});
+ assert.equal(res.status,200);
+ assert.ok(calls.length>0);
+ for(const c of calls)assert.equal(c.opts.redirect,'manual');
+});
+test('upstream unexpected redirect is rejected rather than followed',async()=>{
+ globalThis.fetch=async()=>new Response(null,{status:302,headers:{location:'https://untrusted.example/redirect'}});
+ const res=await getProjects({request:request(),env});
+ assert.equal(res.status,502);
+ assert.deepEqual(await res.json(),{error:'Unexpected Supabase redirect'});
+});

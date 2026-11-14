@@ -4,7 +4,7 @@ export class HttpError extends Error{constructor(status,message){super(message);
 export const handler=async fn=>{try{return await fn()}catch(err){return json({error:err instanceof HttpError?err.message:'Database service unavailable'},err instanceof HttpError?err.status:503)}};
 const setting=(env,k)=>{if(!env[k])throw new HttpError(503,'Supabase configuration incomplete');return String(env[k])};
 const base=env=>setting(env,'SUPABASE_URL').replace(/\/+$/,'');
-async function upstream(url,opts){let res;try{res=await fetch(url,{...opts,redirect:'error'})}catch{throw new HttpError(502,'Supabase is unreachable')};let result;try{result=await res.json()}catch{result=null};return {res,result}}
+async function upstream(url,opts){let res;try{res=await fetch(url,{...opts,redirect:'manual'})}catch{throw new HttpError(502,'Supabase is unreachable')};if(res.status>=300&&res.status<400)throw new HttpError(502,'Unexpected Supabase redirect');let result;try{result=await res.json()}catch{result=null};return {res,result}}
 export async function rest(env,path,{token,method='GET',body,prefer='return=representation'}={}){
  if(!token)throw new HttpError(401,'Sign in required');
  const {res,result}=await upstream(`${base(env)}/rest/v1/${path}`,{method,headers:{apikey:setting(env,'SUPABASE_PUBLISHABLE_KEY'),authorization:`Bearer ${token}`,'content-type':'application/json',prefer},body:body===undefined?undefined:JSON.stringify(body)});
