@@ -9,7 +9,7 @@ const date=(d)=>d?new Date(d).toLocaleDateString('en-GB'):'—';
 const roleName={super_admin:'Super Admin',head_of_projects:'Head of Projects',team_member:'Team Member'};
 const iconPaths={"grid":"<rect x=\"3\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"3\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/>","projects":"<rect x=\"3\" y=\"5\" width=\"18\" height=\"15\" rx=\"2\"/><path d=\"M3 9h18M7 3v4\"/>","chart":"<path d=\"M4 20V11m6 9V4m6 16v-8m5 8H2\"/>","calendar":"<rect x=\"3\" y=\"5\" width=\"18\" height=\"16\" rx=\"2\"/><path d=\"M7 3v4m10-4v4M3 10h18\"/>","reports":"<path d=\"M6 3h10l4 4v14H6zM16 3v5h4M9 12h8M9 16h8\"/>","admin":"<circle cx=\"12\" cy=\"12\" r=\"4\"/><path d=\"M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2m0-14-2 2M7 17l-2 2\"/>","assistant":"<path d=\"M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z\"/>","contract":"<path d=\"M6 3h10l4 4v14H6zM16 3v5h4M9 12h8M9 16h6\"/>","money":"<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M15 8c-1-2-6-2-6 1 0 3 6 1 6 5 0 3-5 4-7 1M12 5v14\"/>","progress":"<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v6m0 4h.01\"/>"};
 const ico=name=>'<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+(iconPaths[name]||iconPaths.grid)+'</svg>';
-let dashboardV5={budgetLines:[],actuals:[],assignments:[],people:[]};
+let dashboardV5={budgetLines:[],monthlyBudgets:[],actuals:[],assignments:[],people:[]};
 let cfg=null,auth=null,me=null,projects=[],adminData={users:[],assignments:[]},page='overview',chosen=null,edit=false,busy=false,error='',notice='',filter='',reportCode='all',question='',answer='';
 const lead=()=>me?.role==='super_admin'||me?.role==='head_of_projects';
 const admin=()=>me?.role==='super_admin';
@@ -22,7 +22,7 @@ async function init(){
  render();
 }
 const saveAuth=()=>{if(auth)sessionStorage.setItem('projectsControlSession',JSON.stringify(auth));else sessionStorage.removeItem('projectsControlSession')};
-function logout(refresh=true){auth=null;me=null;projects=[];dashboardV5={budgetLines:[],actuals:[],assignments:[],people:[]};adminData={users:[],assignments:[]};page='overview';chosen=null;edit=false;chatV4=[];detailsV4=null;creatingV4=false;pendingV4=null;suggestionsV4={};saveAuth();if(refresh)render()}
+function logout(refresh=true){auth=null;me=null;projects=[];dashboardV5={budgetLines:[],monthlyBudgets:[],actuals:[],assignments:[],people:[]};adminData={users:[],assignments:[]};page='overview';chosen=null;edit=false;chatV4=[];detailsV4=null;creatingV4=false;pendingV4=null;suggestionsV4={};saveAuth();if(refresh)render()}
 async function refreshToken(){if(!auth?.refresh_token)return false;
  const r=await fetch(cfg.supabaseUrl+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:cfg.publishableKey,'content-type':'application/json'},body:JSON.stringify({refresh_token:auth.refresh_token})});
  if(!r.ok){logout(false);return false}auth=await r.json();saveAuth();return true;
@@ -42,7 +42,7 @@ async function login(email,password){
  chatV4=[];detailsV4=null;pendingV4=null;auth=v;saveAuth();try{await ready()}catch(e){logout(false);throw e}
 }
 async function ready(){const s=await api('/api/session');me=s;const r=await api('/api/projects');projects=r.projects||[];await loadDashboardV5();if(admin())await loadAdmin();}
-async function loadDashboardV5(){try{dashboardV5=await api('/api/dashboard')}catch{dashboardV5={budgetLines:[],actuals:[],assignments:[],people:[]}}}
+async function loadDashboardV5(){try{dashboardV5=await api('/api/dashboard')}catch{dashboardV5={budgetLines:[],monthlyBudgets:[],actuals:[],assignments:[],people:[]}}}
 async function reload(){const r=await api('/api/projects');projects=r.projects||[];await loadDashboardV5();if(chosen&&!fromProject(chosen))chosen=null; if(admin())await loadAdmin();render()}
 async function loadAdmin(){adminData=await api('/api/admin/users')}
 function setError(err){error=String(err?.message||err||'Unknown error');notice='';render()}
@@ -99,6 +99,9 @@ function aiPanelV4(){
 const v5Number=x=>x===null||x===undefined||x===''?null:(Number.isFinite(Number(x))?Number(x):null);
 const v5Money=(amount,currency)=>amount===null?'Not Recorded':fmt(amount)+' '+h(currency||'');
 const v5Rows=id=>(dashboardV5.budgetLines||[]).filter(x=>x.project_code===id&&String(x.period_start).startsWith('2027-'));
+const v7MonthlyBudget=id=>(dashboardV5.monthlyBudgets||[]).filter(x=>x.project_code===id&&String(x.period_start).startsWith('2027-')).sort((a,b)=>String(a.period_start).localeCompare(String(b.period_start)));
+const v7BudgetCurrency=id=>v7MonthlyBudget(id).find(x=>v5Number(x.baseline_amount)!==null&&Number(x.baseline_amount)!==0)?.currency||v7MonthlyBudget(id)[0]?.currency||null;
+const v7Total=(rows,key)=>{const valid=rows.filter(x=>v5Number(x[key])!==null);return valid.length?valid.reduce((n,x)=>n+Number(x[key]),0):null;};
 function v5Health(id,currency){
  const rows=(dashboardV5.actuals||[]).filter(x=>x.project_code===id&&x.currency===currency);
  const revenue=rows.filter(x=>String(x.account_name).trim().toLowerCase()==='revenue');
@@ -159,20 +162,31 @@ async function v7RenderCharts(){
 }
 
 function v5FinancialPanel(p){
- const lines=v5Rows(p.id),currency=p.contractCurrency;
- const valid=lines.filter(x=>x.currency===currency&&v5Number(x.baseline_amount)!==null);
+ const contractCurrency=p.contractCurrency;
+ const allMonths=v7MonthlyBudget(p.id),currency=v7BudgetCurrency(p.id);
+ const months=allMonths.filter(x=>x.currency===currency);
+ const approved=v7Total(months,'baseline_amount'),working=v7Total(months,'current_amount');
+ const included=new Set(months.filter(x=>v5Number(x.baseline_amount)!==null&&Number(x.baseline_amount)!==0).map(x=>String(x.period_start).slice(0,7)));
+ const lines=v5Rows(p.id).filter(x=>x.currency===currency&&included.has(String(x.period_start).slice(0,7)));
+ const valid=lines.filter(x=>v5Number(x.baseline_amount)!==null);
  const categories=[...new Set(valid.map(x=>x.category))];
  const totals=categories.map(category=>({category,amount:valid.filter(x=>x.category===category).reduce((n,x)=>n+Number(x.baseline_amount),0)}));
- const total=valid.reduce((n,x)=>n+Number(x.baseline_amount),0), maximum=Math.max(1,...totals.map(x=>x.amount));
- const working=lines.filter(x=>x.currency===currency&&v5Number(x.current_amount)!==null);
- const current=working.reduce((n,x)=>n+Number(x.current_amount),0);
- const health=v5Health(p.id,currency);
- const monthly=[...new Set(valid.map(x=>x.period_start))].sort().map(month=>({month,amount:valid.filter(x=>x.period_start===month).reduce((n,x)=>n+Number(x.baseline_amount),0)}));
- return '<section class="card panel v4-section v5-financial" aria-label="Financial analysis"><h2 class="paneltitle">Project Financial Analysis</h2><p class="v5-context">2027 approved budget COGS. Contract amounts and historical actuals are separate figures.</p>'+
- '<div class="v5-metrics"><div><small>Original Contract Value · '+h(currency)+'</small><strong>'+v5Money(p.contractValue,currency)+'</strong></div><div><small>2027 Approved COGS · '+h(currency)+'</small><strong>'+v5Money(valid.length?total:null,currency)+'</strong></div><div><small>2027 Working COGS · '+h(currency)+'</small><strong>'+v5Money(working.length?current:null,currency)+'</strong></div><div><small>Recorded P&amp;L Margin · '+h(currency)+'</small><strong>'+v5Money(health?.margin??null,currency)+'</strong></div></div>'+
- v7Chart('2027 Monthly COGS — Approved vs Working','bar',[...new Set(lines.filter(x=>x.currency===currency).map(x=>String(x.period_start).slice(0,7)))].sort(),['baseline_amount','current_amount'].map((field,i)=>({name:i?'Working COGS':'Approved COGS',values:[...new Set(lines.filter(x=>x.currency===currency).map(x=>String(x.period_start).slice(0,7)))].sort().map(month=>{const rows=lines.filter(x=>x.currency===currency&&String(x.period_start).startsWith(month)&&v5Number(x[field])!==null);return rows.length?rows.reduce((n,x)=>n+Number(x[field]),0):null})})),currency)+
- v7Chart('2027 COGS By Category','bar',totals.map(x=>x.category),[{name:'Approved COGS',values:totals.map(x=>x.amount)}],currency)+
- '<div class="v5-analysis-grid"><div><h3>COGS By Category</h3><p class="v5-context">Bars are scaled to the largest category, not the total COGS or contract value.</p>'+ (totals.length?totals.map(x=>'<div class="v5-bar-row"><div><span>'+h(x.category)+'</span><strong>'+fmt(x.amount)+' '+h(currency)+'</strong></div><div class="v5-track"><i style="width:'+Math.max(0,Math.min(100,x.amount/maximum*100))+'%"></i></div></div>').join(''):'<p>No approved 2027 COGS recorded in the contract currency.</p>')+'</div><div><h3>2027 Monthly COGS</h3>'+(monthly.length?'<div class="table-wrap"><table><thead><tr><th>Month</th><th>Approved COGS</th></tr></thead><tbody>'+monthly.map(x=>'<tr><td>'+h(x.month.slice(0,7))+'</td><td>'+fmt(x.amount)+' '+h(currency)+'</td></tr>').join('')+'</tbody></table></div>':'<p>No approved 2027 monthly COGS recorded.</p>')+'</div></div></section>';
+ const maximum=Math.max(1,...totals.map(x=>x.amount));
+ const health=v5Health(p.id,contractCurrency);
+ const categoriesReconcile=months.filter(x=>included.has(String(x.period_start).slice(0,7))).every(m=>{
+   const matching=valid.filter(x=>String(x.period_start).slice(0,7)===String(m.period_start).slice(0,7));
+   return matching.length>0&&Math.abs(matching.reduce((n,x)=>n+Number(x.baseline_amount),0)-Number(m.baseline_amount))<0.01;
+ });
+ const categoriesAvailable=valid.length>0&&categoriesReconcile;
+ const note=categoriesAvailable?'Detailed categories reflect the scheduled months in the monthly project budget.':'Detailed categories do not fully reconcile with the monthly project budget; category comparisons are withheld until reconciled.';
+ return '<section class="card panel v4-section v5-financial" aria-label="Financial analysis"><h2 class="paneltitle">Project Financial Analysis</h2><p class="v5-context">2027 projected monthly project budget from the budget workbook. Includes manpower and other project costs; contract values and historical actuals are separate.</p>'+
+ '<div class="v5-metrics"><div><small>Original Contract Value · '+h(contractCurrency)+'</small><strong>'+v5Money(p.contractValue,contractCurrency)+'</strong></div><div><small>2027 Approved Project Budget · '+h(currency||'')+'</small><strong>'+v5Money(approved,currency)+'</strong></div><div><small>2027 Working Project Budget · '+h(currency||'')+'</small><strong>'+v5Money(working,currency)+'</strong></div><div><small>Recorded P&amp;L Margin · '+h(contractCurrency)+'</small><strong>'+v5Money(health?.margin??null,contractCurrency)+'</strong></div></div>'+
+ v7Chart('2027 Monthly Project Budget — Approved vs Working','bar',months.map(x=>String(x.period_start).slice(0,7)),[{name:'Approved Budget',values:months.map(x=>v5Number(x.baseline_amount))},{name:'Working Budget',values:months.map(x=>v5Number(x.current_amount))}],currency)+
+ (categoriesAvailable?v7Chart('2027 Scheduled Costs By Category','bar',totals.map(x=>x.category),[{name:'Scheduled Costs',values:totals.map(x=>x.amount)}],currency):'')+
+ '<p class="v5-context">'+h(note)+'</p>'+
+ '<div class="v5-analysis-grid"><div><h3>Scheduled Costs By Category</h3><p class="v5-context">Reference cost lines are restricted to scheduled budget months; bars are scaled to the largest category.</p>'+
+ (categoriesAvailable?totals.map(x=>'<div class="v5-bar-row"><div><span>'+h(x.category)+'</span><strong>'+fmt(x.amount)+' '+h(currency)+'</strong></div><div class="v5-track"><i style="width:'+Math.max(0,Math.min(100,x.amount/maximum*100))+'%"></i></div></div>').join(''):'<p>Category breakdown pending reconciliation with the monthly budget.</p>')+
+ '</div><div><h3>2027 Monthly Project Budget</h3>'+(months.length?'<div class="table-wrap"><table><thead><tr><th>Month</th><th>Approved</th><th>Working</th></tr></thead><tbody>'+months.map(x=>'<tr><td>'+h(String(x.period_start).slice(0,7))+'</td><td>'+(v5Number(x.baseline_amount)===null?'Not Recorded':fmt(x.baseline_amount))+' '+h(currency)+'</td><td>'+(v5Number(x.current_amount)===null?'Not Recorded':fmt(x.current_amount))+' '+h(currency)+'</td></tr>').join('')+'</tbody></table></div>':'<p>No 2027 monthly project budget recorded.</p>')+'</div></div></section>';
 }
 function v5TeamPanel(){
  if(!lead())return '';
@@ -182,17 +196,20 @@ function v5TeamPanel(){
  (people.length?v7Chart('Assigned Projects By Team Member','bar',people.map(x=>x.display_name),[{name:'Assigned Projects',values:people.map(u=>new Set(assignments.filter(x=>x.user_id===u.id).map(x=>x.project_code)).size)}])+'<div class="table-wrap"><table class="v6-team-table"><thead><tr><th>Team Member</th><th>Assigned Projects</th><th>Project Codes</th></tr></thead><tbody>'+people.map(u=>{const codes=[...new Set(assignments.filter(x=>x.user_id===u.id).map(x=>x.project_code))];return '<tr><td><strong>'+h(u.display_name)+'</strong></td><td class="v6-count">'+codes.length+'</td><td>'+h(codes.join(', ')||'Unassigned')+'</td></tr>'}).join('')+'</tbody></table></div>':'<p>No active team members are available.</p>')+'</section>';
 }
 function v5Portfolio(){
- const currencies=[...new Set(active().map(p=>p.contractCurrency).filter(Boolean))];
+ const currencies=[...new Set(active().map(p=>v7BudgetCurrency(p.id)).filter(Boolean))];
  const charts=currencies.map(currency=>{
-  const eligible=active().filter(p=>p.contractCurrency===currency);
   const labels=[],values=[];
-  eligible.forEach(p=>{
-   const rows=v5Rows(p.id).filter(x=>x.currency===currency&&v5Number(x.baseline_amount)!==null);
-   if(rows.length){labels.push(p.id);values.push(rows.reduce((n,x)=>n+Number(x.baseline_amount),0));}
+  active().filter(p=>v7BudgetCurrency(p.id)===currency).forEach(p=>{
+   const total=v7Total(v7MonthlyBudget(p.id).filter(x=>x.currency===currency),'baseline_amount');
+   if(total!==null){labels.push(p.id);values.push(total);}
   });
-  return v7Chart('2027 Approved COGS By Project · '+currency,'bar',labels,[{name:'Approved COGS',values}],currency);
+  return v7Chart('2027 Project Budget By Project · '+currency,'bar',labels,[{name:'Approved Project Budget',values}],currency);
  }).join('');
- return charts+'<section class="card panel v4-section"><div class="panelhead"><h2 class="paneltitle">Project Financial Overview</h2></div><p class="v5-context">2027 approved COGS in each project currency. Arrows use recorded Revenue minus COGS only; neutral means insufficient actual data.</p><div class="v5-portfolio-grid">'+active().map(p=>'<div class="v5-portfolio-item"><div><strong>'+h(p.id)+' · '+h(p.displayName||p.client)+'</strong>'+v5Arrow(p)+'</div><small>2027 Approved COGS · '+h(p.contractCurrency)+'</small><strong>'+v5Money((()=>{const a=v5Rows(p.id).filter(x=>x.currency===p.contractCurrency&&v5Number(x.baseline_amount)!==null);return a.length?a.reduce((n,x)=>n+Number(x.baseline_amount),0):null})(),p.contractCurrency)+'</strong><button class="btn small" data-project="'+h(p.id)+'">View Financial Analysis</button></div>').join('')+'</div></section>';
+ return charts+'<section class="card panel v4-section"><div class="panelhead"><h2 class="paneltitle">Project Financial Overview</h2></div><p class="v5-context">2027 projected monthly project budgets include manpower and other project costs, grouped by budget currency. Contract values may use a different currency. Arrows reflect recorded Revenue minus COGS only.</p><div class="v5-portfolio-grid">'+active().map(p=>{
+  const currency=v7BudgetCurrency(p.id);
+  const total=v7Total(v7MonthlyBudget(p.id).filter(x=>x.currency===currency),'baseline_amount');
+  return '<div class="v5-portfolio-item"><div><strong>'+h(p.id)+' · '+h(p.displayName||p.client)+'</strong>'+v5Arrow(p)+'</div><small>2027 Approved Project Budget · '+h(currency||'')+'</small><strong>'+v5Money(total,currency)+'</strong><button class="btn small" data-project="'+h(p.id)+'">View Financial Analysis</button></div>';
+ }).join('')+'</div></section>';
 }
 
 function overviewV4(){
@@ -218,7 +235,7 @@ function projectViewV4(){
  <select name="userId" required><option value="">Select employee</option>${(d?.people||[]).filter(u=>u.role==='team_member'&&!(d?.assignments||[]).some(a=>a.user_id===u.id)).map(u=>`<option value="${h(u.id)}">${h(u.display_name)}</option>`).join('')}</select></label>
  <button class="btn" type="submit">Assign</button></form></section>`:''}
  ${v5FinancialPanel(p)}<section class="card panel v4-section"><h2 class="paneltitle">Monthly Budget</h2>${totals.length?`<div class="table-wrap"><table><thead><tr><th>Period</th><th>Currency</th><th>Approved</th><th>Working budget</th><th></th></tr></thead><tbody>${totals.map(r=>`<tr><td>${h(r.period_start)}</td><td>${h(r.currency)}</td><td>${fmt(r.baseline_amount===null?null:Number(r.baseline_amount))}</td><td><input class="v4-amount" data-money="monthly-${h(r.period_start)}" type="number" step="0.01" value="${r.current_amount??''}"></td><td><button class="btn small" data-v4="save-money" data-kind="monthly" data-entry="${h(r.period_start)}" data-updated="${h(r.updated_at)}">Save</button></td></tr>`).join('')}</tbody></table></div>`:'<p>No budget entered.</p>'}<form id="add-period-v4" class="v4-inline"><label>Add month or year <input type="month" name="period" required></label><button class="btn">Add month</button></form></section>
- <section class="card panel v4-section"><h2 class="paneltitle">Detailed Budget &amp; COGS</h2>${lines.length?`<details><summary>View ${lines.length} budget entries</summary><div class="table-wrap v4-scroll"><table><thead><tr><th>Period</th><th>Category</th><th>Detail</th><th>Approved</th><th>Working</th><th></th></tr></thead><tbody>${lines.map(r=>`<tr><td>${h(r.period_start)}</td><td>${h(r.category)}</td><td>${h(r.detail)}</td><td>${fmt(r.baseline_amount===null?null:Number(r.baseline_amount))} ${h(r.currency)}</td><td><input class="v4-amount" data-money="line-${r.id}" type="number" step="0.01" value="${r.current_amount??''}"></td><td><button class="btn small" data-v4="save-money" data-kind="line" data-entry="${r.id}" data-updated="${h(r.updated_at)}">Save</button></td></tr>`).join('')}</tbody></table></div></details>`:'<p>No cost details entered.</p>'}</section>
+ <section class="card panel v4-section"><h2 class="paneltitle">Detailed Budget &amp; COGS</h2><p class="v5-context">Full-year reference cost lines may extend beyond scheduled project budget months. The 2027 Monthly Project Budget above is the controlling project forecast; reference lines are retained for audit.</p>${lines.length?`<details><summary>View ${lines.length} budget entries</summary><div class="table-wrap v4-scroll"><table><thead><tr><th>Period</th><th>Category</th><th>Detail</th><th>Approved</th><th>Working</th><th></th></tr></thead><tbody>${lines.map(r=>`<tr><td>${h(r.period_start)}</td><td>${h(r.category)}</td><td>${h(r.detail)}</td><td>${fmt(r.baseline_amount===null?null:Number(r.baseline_amount))} ${h(r.currency)}</td><td><input class="v4-amount" data-money="line-${r.id}" type="number" step="0.01" value="${r.current_amount??''}"></td><td><button class="btn small" data-v4="save-money" data-kind="line" data-entry="${r.id}" data-updated="${h(r.updated_at)}">Save</button></td></tr>`).join('')}</tbody></table></div></details>`:'<p>No cost details entered.</p>'}</section>
  <section class="card panel v4-section"><h2 class="paneltitle">Historical P&amp;L Actuals</h2>${actuals.length?`<div class="table-wrap"><table><thead><tr><th>Period</th><th>Account</th><th>Currency</th><th>Amount</th><th></th></tr></thead><tbody>${actuals.map(r=>`<tr><td>${h(r.period_start)}</td><td>${h(r.account_name)}</td><td>${h(r.currency)}</td><td>${lead()?`<input class="v4-amount" data-money="actual-${r.id}" type="number" step="0.01" value="${r.amount}">`:fmt(Number(r.amount))}</td><td>${lead()?`<button class="btn small" data-v4="save-money" data-kind="actual" data-entry="${r.id}" data-updated="${h(r.updated_at)}">Save</button>`:''}</td></tr>`).join('')}</tbody></table></div>`:'<p>No historical P&amp;L actuals recorded.</p>'}</section>
  <section class="card panel v4-section"><h2 class="paneltitle">Contract</h2>${docs.filter(x=>x.document_type==='contract').map(x=>`<div class="v4-file"><strong>${h(x.original_name)}</strong>${x.preview_pdf_path?`<button class="btn small" data-v4="pdf" data-doc="${h(x.id)}">View PDF</button>`:''}<button class="btn small" data-v4="file" data-doc="${h(x.id)}">Download</button></div>`).join('')||'<p>No contract attached.</p>'}<form id="contract-v4" class="v4-inline"><input name="file" type="file" accept=".pdf,.doc,.docx" required><button class="btn">Upload contract</button></form>
  <h2 class="paneltitle v6-subheading">Project Numbers</h2>${docs.filter(x=>x.document_type==='project_numbers').map(x=>`<div class="v4-file"><strong>${h(x.original_name)}</strong><button class="btn small" data-v4="file" data-doc="${h(x.id)}">Download file</button></div>`).join('')||'<p>No numbers file attached.</p>'}<form id="numbers-v4" class="v4-inline"><input name="file" type="file" accept=".xls,.xlsx,.pdf,.doc,.docx" required><button class="btn">Upload numbers</button></form><div id="existing-proposal-v4" class="v4-proposal" ${pendingV4?'':'hidden'}>${pendingV4?renderSuggestedV4(pendingV4.proposed):''}</div></section>
