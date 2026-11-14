@@ -162,20 +162,31 @@ async function v7RenderCharts(){
 }
 
 function v5FinancialPanel(p){
- const lines=v5Rows(p.id),currency=p.contractCurrency;
- const valid=lines.filter(x=>x.currency===currency&&v5Number(x.baseline_amount)!==null);
+ const contractCurrency=p.contractCurrency;
+ const allMonths=v7MonthlyBudget(p.id),currency=v7BudgetCurrency(p.id);
+ const months=allMonths.filter(x=>x.currency===currency);
+ const approved=v7Total(months,'baseline_amount'),working=v7Total(months,'current_amount');
+ const included=new Set(months.filter(x=>v5Number(x.baseline_amount)!==null&&Number(x.baseline_amount)!==0).map(x=>String(x.period_start).slice(0,7)));
+ const lines=v5Rows(p.id).filter(x=>x.currency===currency&&included.has(String(x.period_start).slice(0,7)));
+ const valid=lines.filter(x=>v5Number(x.baseline_amount)!==null);
  const categories=[...new Set(valid.map(x=>x.category))];
  const totals=categories.map(category=>({category,amount:valid.filter(x=>x.category===category).reduce((n,x)=>n+Number(x.baseline_amount),0)}));
- const total=valid.reduce((n,x)=>n+Number(x.baseline_amount),0), maximum=Math.max(1,...totals.map(x=>x.amount));
- const working=lines.filter(x=>x.currency===currency&&v5Number(x.current_amount)!==null);
- const current=working.reduce((n,x)=>n+Number(x.current_amount),0);
- const health=v5Health(p.id,currency);
- const monthly=[...new Set(valid.map(x=>x.period_start))].sort().map(month=>({month,amount:valid.filter(x=>x.period_start===month).reduce((n,x)=>n+Number(x.baseline_amount),0)}));
- return '<section class="card panel v4-section v5-financial" aria-label="Financial analysis"><h2 class="paneltitle">Project Financial Analysis</h2><p class="v5-context">2027 approved budget COGS. Contract amounts and historical actuals are separate figures.</p>'+
- '<div class="v5-metrics"><div><small>Original Contract Value · '+h(currency)+'</small><strong>'+v5Money(p.contractValue,currency)+'</strong></div><div><small>2027 Approved COGS · '+h(currency)+'</small><strong>'+v5Money(valid.length?total:null,currency)+'</strong></div><div><small>2027 Working COGS · '+h(currency)+'</small><strong>'+v5Money(working.length?current:null,currency)+'</strong></div><div><small>Recorded P&amp;L Margin · '+h(currency)+'</small><strong>'+v5Money(health?.margin??null,currency)+'</strong></div></div>'+
- v7Chart('2027 Monthly COGS — Approved vs Working','bar',[...new Set(lines.filter(x=>x.currency===currency).map(x=>String(x.period_start).slice(0,7)))].sort(),['baseline_amount','current_amount'].map((field,i)=>({name:i?'Working COGS':'Approved COGS',values:[...new Set(lines.filter(x=>x.currency===currency).map(x=>String(x.period_start).slice(0,7)))].sort().map(month=>{const rows=lines.filter(x=>x.currency===currency&&String(x.period_start).startsWith(month)&&v5Number(x[field])!==null);return rows.length?rows.reduce((n,x)=>n+Number(x[field]),0):null})})),currency)+
- v7Chart('2027 COGS By Category','bar',totals.map(x=>x.category),[{name:'Approved COGS',values:totals.map(x=>x.amount)}],currency)+
- '<div class="v5-analysis-grid"><div><h3>COGS By Category</h3><p class="v5-context">Bars are scaled to the largest category, not the total COGS or contract value.</p>'+ (totals.length?totals.map(x=>'<div class="v5-bar-row"><div><span>'+h(x.category)+'</span><strong>'+fmt(x.amount)+' '+h(currency)+'</strong></div><div class="v5-track"><i style="width:'+Math.max(0,Math.min(100,x.amount/maximum*100))+'%"></i></div></div>').join(''):'<p>No approved 2027 COGS recorded in the contract currency.</p>')+'</div><div><h3>2027 Monthly COGS</h3>'+(monthly.length?'<div class="table-wrap"><table><thead><tr><th>Month</th><th>Approved COGS</th></tr></thead><tbody>'+monthly.map(x=>'<tr><td>'+h(x.month.slice(0,7))+'</td><td>'+fmt(x.amount)+' '+h(currency)+'</td></tr>').join('')+'</tbody></table></div>':'<p>No approved 2027 monthly COGS recorded.</p>')+'</div></div></section>';
+ const maximum=Math.max(1,...totals.map(x=>x.amount));
+ const health=v5Health(p.id,contractCurrency);
+ const categoriesReconcile=months.filter(x=>included.has(String(x.period_start).slice(0,7))).every(m=>{
+   const matching=valid.filter(x=>String(x.period_start).slice(0,7)===String(m.period_start).slice(0,7));
+   return matching.length>0&&Math.abs(matching.reduce((n,x)=>n+Number(x.baseline_amount),0)-Number(m.baseline_amount))<0.01;
+ });
+ const categoriesAvailable=valid.length>0&&categoriesReconcile;
+ const note=categoriesAvailable?'Detailed categories reflect the scheduled months in the monthly project budget.':'Detailed categories do not fully reconcile with the monthly project budget; category comparisons are withheld until reconciled.';
+ return '<section class="card panel v4-section v5-financial" aria-label="Financial analysis"><h2 class="paneltitle">Project Financial Analysis</h2><p class="v5-context">2027 projected monthly project budget from the budget workbook. Includes manpower and other project costs; contract values and historical actuals are separate.</p>'+
+ '<div class="v5-metrics"><div><small>Original Contract Value · '+h(contractCurrency)+'</small><strong>'+v5Money(p.contractValue,contractCurrency)+'</strong></div><div><small>2027 Approved Project Budget · '+h(currency||'')+'</small><strong>'+v5Money(approved,currency)+'</strong></div><div><small>2027 Working Project Budget · '+h(currency||'')+'</small><strong>'+v5Money(working,currency)+'</strong></div><div><small>Recorded P&amp;L Margin · '+h(contractCurrency)+'</small><strong>'+v5Money(health?.margin??null,contractCurrency)+'</strong></div></div>'+
+ v7Chart('2027 Monthly Project Budget — Approved vs Working','bar',months.map(x=>String(x.period_start).slice(0,7)),[{name:'Approved Budget',values:months.map(x=>v5Number(x.baseline_amount))},{name:'Working Budget',values:months.map(x=>v5Number(x.current_amount))}],currency)+
+ (categoriesAvailable?v7Chart('2027 Scheduled Costs By Category','bar',totals.map(x=>x.category),[{name:'Scheduled Costs',values:totals.map(x=>x.amount)}],currency):'')+
+ '<p class="v5-context">'+h(note)+'</p>'+
+ '<div class="v5-analysis-grid"><div><h3>Scheduled Costs By Category</h3><p class="v5-context">Reference cost lines are restricted to scheduled budget months; bars are scaled to the largest category.</p>'+
+ (categoriesAvailable?totals.map(x=>'<div class="v5-bar-row"><div><span>'+h(x.category)+'</span><strong>'+fmt(x.amount)+' '+h(currency)+'</strong></div><div class="v5-track"><i style="width:'+Math.max(0,Math.min(100,x.amount/maximum*100))+'%"></i></div></div>').join(''):'<p>Category breakdown pending reconciliation with the monthly budget.</p>')+
+ '</div><div><h3>2027 Monthly Project Budget</h3>'+(months.length?'<div class="table-wrap"><table><thead><tr><th>Month</th><th>Approved</th><th>Working</th></tr></thead><tbody>'+months.map(x=>'<tr><td>'+h(String(x.period_start).slice(0,7))+'</td><td>'+(v5Number(x.baseline_amount)===null?'Not Recorded':fmt(x.baseline_amount))+' '+h(currency)+'</td><td>'+(v5Number(x.current_amount)===null?'Not Recorded':fmt(x.current_amount))+' '+h(currency)+'</td></tr>').join('')+'</tbody></table></div>':'<p>No 2027 monthly project budget recorded.</p>')+'</div></div></section>';
 }
 function v5TeamPanel(){
  if(!lead())return '';
