@@ -61,16 +61,16 @@ function directAnswer(question,view,allProjects,people,assignments){
  if(kind.finance&&/actual|recorded|profit|revenue|margin|p&l/.test(q)){
    const entries=view.flatMap(x=>x.actuals.map(r=>({code:x.project.code,...r})));
    if(!entries.length)return 'Recorded financial actuals for the requested project or projects are not currently present in the portal.';
-   return 'Recorded financial entries available in the portal (these are entries, not a computed profit margin):\\n'+entries.slice(0,50).map(r=>r.code+' | '+r.period_start+' | '+r.account_name+': '+money(r.amount,r.currency)).join('\\n')+(entries.length>50?'\\nAdditional records are available in the portal.':'');
+   return 'Recorded financial entries available in the portal (these are entries, not a computed profit margin):\n'+entries.slice(0,50).map(r=>r.code+' | '+r.period_start+' | '+r.account_name+': '+money(r.amount,r.currency)).join('\n')+(entries.length>50?'\nAdditional records are available in the portal.':'');
  }
  if(kind.finance&&!group&&/budget|cost|cogs|financ|project.*amount/.test(q)&&!kind.team){
-   return '2027 projected project budgets (approved / working, by project and budget currency):\\n'+view.map(({project:p})=>p.code+' — '+p.name+': '+money(p.budget_2027_approved,p.budget_2027_currency)+' / '+money(p.budget_2027_working,p.budget_2027_currency)).join('\\n')+'. These are budgets, not actual P&L.';
+   return '2027 projected project budgets (approved / working, by project and budget currency):\n'+view.map(({project:p})=>p.code+' — '+p.name+': '+money(p.budget_2027_approved,p.budget_2027_currency)+' / '+money(p.budget_2027_working,p.budget_2027_currency)).join('\n')+'. These are budgets, not actual P&L.';
  }
  if(kind.schedule&&!group&&/start|finish|end|deadline|schedule/.test(q)){
-   return 'Recorded project schedule:\\n'+view.map(({project:p})=>p.code+' — '+p.name+': planned start '+emptyIfMissing(p.planned_start)+'; planned finish '+emptyIfMissing(p.planned_finish)+'; forecast finish '+emptyIfMissing(p.forecast_finish)).join('\\n');
+   return 'Recorded project schedule:\n'+view.map(({project:p})=>p.code+' — '+p.name+': planned start '+emptyIfMissing(p.planned_start)+'; planned finish '+emptyIfMissing(p.planned_finish)+'; forecast finish '+emptyIfMissing(p.forecast_finish)).join('\n');
  }
  if(kind.location&&!group&&!kind.finance&&!kind.contract){
-   return 'Recorded project locations:\\n'+view.map(({project:p})=>p.code+' — '+p.name+': '+emptyIfMissing(p.location)).join('\\n');
+   return 'Recorded project locations:\n'+view.map(({project:p})=>p.code+' — '+p.name+': '+emptyIfMissing(p.location)).join('\n');
  }
  if(kind.clause&&!view.some(x=>x.contracts.some(c=>c.text))){
   return 'The contract clauses or extracted contract text needed to answer that question are not currently present in the portal. Project register details may still be available.';
@@ -106,7 +106,7 @@ function directAnswer(question,view,allProjects,people,assignments){
     if(!matching.length)return 'Detailed cost-category information for this question is not currently present in the portal.';
     const consolidated=new Map();
     for(const x of matching){const key=x.category+' | '+x.currency;const a=consolidated.get(key)||{category:x.category,currency:x.currency,amount:0};a.amount+=x.approved;consolidated.set(key,a);}
-    return 'Project '+p.code+' — 2027 reference cost categories (the reference breakdown may include months outside the final monthly project budget):\\n'+[...consolidated.values()].map(x=>x.category+': '+money(x.amount,x.currency)).join('\\n');
+    return 'Project '+p.code+' — 2027 reference cost categories (the reference breakdown may include months outside the final monthly project budget):\n'+[...consolidated.values()].map(x=>x.category+': '+money(x.amount,x.currency)).join('\n');
    }
    if(/month|january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec/.test(q)){
     return 'Project '+p.code+' — 2027 monthly approved and working budgets ('+say(p.budget_2027_currency)+'):\n'+(p.budget_2027_months.length?p.budget_2027_months.map(([period,a,w])=>period+': approved '+money(a,p.budget_2027_currency)+'; working '+money(w,p.budget_2027_currency)).join('\n'):absent);
