@@ -57,7 +57,7 @@ const active=()=>projects.filter(p=>p.status==='Active');
 const sumFor=(currency)=>active().filter(p=>p.contractCurrency===currency&&p.contractValue!==null).reduce((sum,p)=>sum+p.contractValue,0);
 const missing=(field)=>active().filter(p=>p[field]===null).length;
 function projectCard(p){return `<div class="card projectcard"><div class="projecttop"><div><div class="projectid">Project ${h(p.id)}</div><h3 class="projectname">${h(p.displayName||p.client||p.name)}</h3><p class="projectclient">${h(p.name)}</p></div><span class="pill ${p.status==='Active'?'green':'neutral'}">${h(p.status||'Not supplied')}</span></div><div class="projectstats"><span>Contract Value</span><strong>${fmt(p.contractValue)} ${h(p.contractCurrency||'')}</strong></div><div class="projectfoot"><span>Physical progress: <strong>${p.progress===null?'Not Recorded':h(p.progress)+'%'}</strong></span><button class="btn small" data-project="${h(p.id)}">Open Project</button></div></div>`}
-function render(){ROOT.innerHTML=!me?loginView():layout(creatingV4?createV4():chosen?(edit?editProjectV4():projectViewV4()):page==='overview'?overviewV4():page==='projects'?projectListV4():page==='financials'?financePageV4():page==='milestones'?milestonesPageV4():page==='reports'?reportPageV4():page==='admin'?adminPageV4():overviewV4())}
+function render(){ROOT.innerHTML=!me?loginView():layout(creatingV4?createV4():chosen?(edit?editProjectV4():projectViewV4()):page==='overview'?overviewV4():page==='projects'?projectListV4():page==='financials'?financePageV4():page==='milestones'?milestonesPageV4():page==='reports'?reportPageV4():page==='admin'?adminPageV4():overviewV4());v7RenderCharts()}
 function clearToast(){error='';notice=''}
 ROOT.addEventListener('click',async e=>{
  const el=e.target.closest('button');if(!el)return;
@@ -111,6 +111,51 @@ function v5Arrow(p){
  const result=v5Health(p.id,p.contractCurrency);
  return result?'<span class="v5-trend '+result.direction+'" title="Recorded Revenue minus COGS only: '+h(fmt(result.margin))+' '+h(p.contractCurrency)+'" aria-label="'+(result.direction==='up'?'Positive':'Negative')+' recorded margin">'+(result.direction==='up'?'↗':'↘')+'</span>':'<span class="v5-trend unavailable" title="Recorded margin unavailable until Revenue and COGS actuals are mapped" aria-label="Financial margin unavailable">—</span>';
 }
+/* v7: Presentation-only ECharts. Existing records and tables remain authoritative. */
+let v7ChartsPromise=null;
+function v7Chart(title,kind,labels,series,currency=''){
+ if(!labels.length||!series.length)return '';
+ const payload=JSON.stringify({kind,labels,series,currency});
+ return '<div class="v7-chart-panel"><h3>'+h(title)+'</h3><div class="v7-chart" role="img" aria-label="'+h(title)+'" data-chart="'+h(payload)+'"></div><p class="v7-chart-note">Values reflect available records only. Refer to the table for exact figures.</p></div>';
+}
+function v7LoadCharts(){
+ if(window.echarts)return Promise.resolve(window.echarts);
+ if(v7ChartsPromise)return v7ChartsPromise;
+ v7ChartsPromise=new Promise((resolve,reject)=>{
+  const script=document.createElement('script');
+  script.src='https://cdn.jsdelivr.net/npm/echarts@5.6.0/dist/echarts.min.js';
+  script.onload=()=>window.echarts?resolve(window.echarts):reject(Error('Charts unavailable'));
+  script.onerror=()=>reject(Error('Charts unavailable'));
+  document.head.appendChild(script);
+ }).catch(e=>{v7ChartsPromise=null;throw e});
+ return v7ChartsPromise;
+}
+async function v7RenderCharts(){
+ const targets=[...ROOT.querySelectorAll('.v7-chart')];
+ if(!targets.length)return;
+ let echarts;
+ try{echarts=await v7LoadCharts()}catch(e){targets.forEach(el=>{if(el.isConnected)el.textContent='Chart unavailable; detailed figures remain accessible in the tables.'});return;}
+ targets.forEach(el=>{
+  if(!el.isConnected)return;
+  try{
+   const data=JSON.parse(el.dataset.chart);
+   const chart=echarts.init(el,null,{renderer:'svg'});
+   const option={
+    animation:false,
+    tooltip:{trigger:'axis',valueFormatter:v=>Number(v).toLocaleString('en-US',{maximumFractionDigits:2})+(data.currency?' '+data.currency:'')},
+    legend:{top:0,type:'scroll'},
+    grid:{left:16,right:22,top:48,bottom:48,containLabel:true},
+    xAxis:{type:'category',data:data.labels,axisLabel:{hideOverlap:true}},
+    yAxis:{type:'value',axisLabel:{formatter:v=>Number(v).toLocaleString('en-US')}},
+    series:data.series.map((x,i)=>({name:x.name,type:data.kind==='line'?'line':'bar',data:x.values,smooth:false,barMaxWidth:36,itemStyle:{color:['#0f766e','#3268b5','#a76e0b','#64748b'][i%4]}}))
+   };
+   chart.setOption(option);
+   const observer=new ResizeObserver(()=>{if(el.isConnected)chart.resize();else{observer.disconnect();chart.dispose()}});
+   observer.observe(el);
+  }catch(e){el.textContent='Chart unavailable; detailed figures remain accessible in the tables.';}
+ });
+}
+
 function v5FinancialPanel(p){
  const lines=v5Rows(p.id),currency=p.contractCurrency;
  const valid=lines.filter(x=>x.currency===currency&&v5Number(x.baseline_amount)!==null);
@@ -123,6 +168,8 @@ function v5FinancialPanel(p){
  const monthly=[...new Set(valid.map(x=>x.period_start))].sort().map(month=>({month,amount:valid.filter(x=>x.period_start===month).reduce((n,x)=>n+Number(x.baseline_amount),0)}));
  return '<section class="card panel v4-section v5-financial" aria-label="Financial analysis"><h2 class="paneltitle">Project Financial Analysis</h2><p class="v5-context">2027 approved budget COGS. Contract amounts and historical actuals are separate figures.</p>'+
  '<div class="v5-metrics"><div><small>Original Contract Value · '+h(currency)+'</small><strong>'+v5Money(p.contractValue,currency)+'</strong></div><div><small>2027 Approved COGS · '+h(currency)+'</small><strong>'+v5Money(valid.length?total:null,currency)+'</strong></div><div><small>2027 Working COGS · '+h(currency)+'</small><strong>'+v5Money(working.length?current:null,currency)+'</strong></div><div><small>Recorded P&amp;L Margin · '+h(currency)+'</small><strong>'+v5Money(health?.margin??null,currency)+'</strong></div></div>'+
+ v7Chart('2027 Monthly Approved COGS','bar',monthly.map(x=>String(x.month).slice(0,7)),[{name:'Approved COGS',values:monthly.map(x=>x.amount)}],currency)+
+ v7Chart('2027 COGS By Category','bar',totals.map(x=>x.category),[{name:'Approved COGS',values:totals.map(x=>x.amount)}],currency)+
  '<div class="v5-analysis-grid"><div><h3>COGS By Category</h3><p class="v5-context">Bars are scaled to the largest category, not the total COGS or contract value.</p>'+ (totals.length?totals.map(x=>'<div class="v5-bar-row"><div><span>'+h(x.category)+'</span><strong>'+fmt(x.amount)+' '+h(currency)+'</strong></div><div class="v5-track"><i style="width:'+Math.max(0,Math.min(100,x.amount/maximum*100))+'%"></i></div></div>').join(''):'<p>No approved 2027 COGS recorded in the contract currency.</p>')+'</div><div><h3>2027 Monthly COGS</h3>'+(monthly.length?'<div class="table-wrap"><table><thead><tr><th>Month</th><th>Approved COGS</th></tr></thead><tbody>'+monthly.map(x=>'<tr><td>'+h(x.month.slice(0,7))+'</td><td>'+fmt(x.amount)+' '+h(currency)+'</td></tr>').join('')+'</tbody></table></div>':'<p>No approved 2027 monthly COGS recorded.</p>')+'</div></div></section>';
 }
 function v5TeamPanel(){
