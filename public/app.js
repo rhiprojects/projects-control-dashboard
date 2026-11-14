@@ -180,7 +180,17 @@ function v5TeamPanel(){
  (people.length?v7Chart('Assigned Projects By Team Member','bar',people.map(x=>x.display_name),[{name:'Assigned Projects',values:people.map(u=>new Set(assignments.filter(x=>x.user_id===u.id).map(x=>x.project_code)).size)}])+'<div class="table-wrap"><table class="v6-team-table"><thead><tr><th>Team Member</th><th>Assigned Projects</th><th>Project Codes</th></tr></thead><tbody>'+people.map(u=>{const codes=[...new Set(assignments.filter(x=>x.user_id===u.id).map(x=>x.project_code))];return '<tr><td><strong>'+h(u.display_name)+'</strong></td><td class="v6-count">'+codes.length+'</td><td>'+h(codes.join(', ')||'Unassigned')+'</td></tr>'}).join('')+'</tbody></table></div>':'<p>No active team members are available.</p>')+'</section>';
 }
 function v5Portfolio(){
- return '<section class="card panel v4-section"><div class="panelhead"><h2 class="paneltitle">Project Financial Overview</h2></div><p class="v5-context">2027 approved COGS in each project currency. Arrows use recorded Revenue minus COGS only; neutral means insufficient actual data.</p><div class="v5-portfolio-grid">'+active().map(p=>'<div class="v5-portfolio-item"><div><strong>'+h(p.id)+' · '+h(p.displayName||p.client)+'</strong>'+v5Arrow(p)+'</div><small>2027 Approved COGS · '+h(p.contractCurrency)+'</small><strong>'+v5Money((()=>{const a=v5Rows(p.id).filter(x=>x.currency===p.contractCurrency&&v5Number(x.baseline_amount)!==null);return a.length?a.reduce((n,x)=>n+Number(x.baseline_amount),0):null})(),p.contractCurrency)+'</strong><button class="btn small" data-project="'+h(p.id)+'">View Financial Analysis</button></div>').join('')+'</div></section>';
+ const currencies=[...new Set(active().map(p=>p.contractCurrency).filter(Boolean))];
+ const charts=currencies.map(currency=>{
+  const eligible=active().filter(p=>p.contractCurrency===currency);
+  const labels=[],values=[];
+  eligible.forEach(p=>{
+   const rows=v5Rows(p.id).filter(x=>x.currency===currency&&v5Number(x.baseline_amount)!==null);
+   if(rows.length){labels.push(p.id);values.push(rows.reduce((n,x)=>n+Number(x.baseline_amount),0));}
+  });
+  return v7Chart('2027 Approved COGS By Project · '+currency,'bar',labels,[{name:'Approved COGS',values}],currency);
+ }).join('');
+ return charts+'<section class="card panel v4-section"><div class="panelhead"><h2 class="paneltitle">Project Financial Overview</h2></div><p class="v5-context">2027 approved COGS in each project currency. Arrows use recorded Revenue minus COGS only; neutral means insufficient actual data.</p><div class="v5-portfolio-grid">'+active().map(p=>'<div class="v5-portfolio-item"><div><strong>'+h(p.id)+' · '+h(p.displayName||p.client)+'</strong>'+v5Arrow(p)+'</div><small>2027 Approved COGS · '+h(p.contractCurrency)+'</small><strong>'+v5Money((()=>{const a=v5Rows(p.id).filter(x=>x.currency===p.contractCurrency&&v5Number(x.baseline_amount)!==null);return a.length?a.reduce((n,x)=>n+Number(x.baseline_amount),0):null})(),p.contractCurrency)+'</strong><button class="btn small" data-project="'+h(p.id)+'">View Financial Analysis</button></div>').join('')+'</div></section>';
 }
 
 function overviewV4(){
@@ -228,12 +238,16 @@ function financePageV4(){
 }
 
 function milestonesPageV4(){
- return heading('Milestones','Project Schedules','Dates and progress for authorized projects.')+`<div class="card tablecard"><div class="table-wrap"><table><thead><tr><th>Project</th><th>Client</th><th>Start</th><th>Planned finish</th><th>Forecast finish</th><th>Progress</th></tr></thead><tbody>${projects.map(p=>`<tr><td><button class="plink" data-project="${h(p.id)}">${h(p.id)}</button></td><td>${h(p.client)}</td><td>${h(p.startDate||'—')}</td><td>${h(p.baselineFinish||'—')}</td><td>${h(p.forecastFinish||'—')}</td><td>${p.progress===null?'—':p.progress+'%'}</td></tr>`).join('')}</tbody></table></div></div>`;
+ const recorded=projects.filter(p=>v5Number(p.progress)!==null);
+ const progressChart=v7Chart('Recorded Physical Progress By Project','bar',recorded.map(p=>p.id),[{name:'Physical Progress (%)',values:recorded.map(p=>Number(p.progress))}],'%');
+ return progressChart+heading('Milestones','Project Schedules','Dates and progress for authorized projects.')+`<div class="card tablecard"><div class="table-wrap"><table><thead><tr><th>Project</th><th>Client</th><th>Start</th><th>Planned finish</th><th>Forecast finish</th><th>Progress</th></tr></thead><tbody>${projects.map(p=>`<tr><td><button class="plink" data-project="${h(p.id)}">${h(p.id)}</button></td><td>${h(p.client)}</td><td>${h(p.startDate||'—')}</td><td>${h(p.baselineFinish||'—')}</td><td>${h(p.forecastFinish||'—')}</td><td>${p.progress===null?'—':p.progress+'%'}</td></tr>`).join('')}</tbody></table></div></div>`;
 }
 
 function reportPageV4(){
  const selected=reportCode==='all'?projects:projects.filter(p=>p.id===reportCode);
- return heading('Reports','Project Report','Print the selected project records.','<button class="btn" data-action="print">Print / Save PDF</button>')+`<section class="card panel"><select id="report-code"><option value="all">All accessible projects</option>${projects.map(p=>`<option ${reportCode===p.id?'selected':''} value="${h(p.id)}">${h(p.id)} · ${h(p.displayName||p.client)}</option>`).join('')}</select><div class="table-wrap"><table><thead><tr><th>Code</th><th>Client</th><th>Contract</th><th>Progress</th></tr></thead><tbody>${selected.map(p=>`<tr><td>${h(p.id)}</td><td>${h(p.client)}</td><td>${fmt(p.contractValue)} ${h(p.contractCurrency)}</td><td>${p.progress===null?'—':p.progress+'%'}</td></tr>`).join('')}</tbody></table></div></section>`;
+ const recorded=selected.filter(p=>v5Number(p.progress)!==null);
+ const chart=v7Chart('Recorded Physical Progress · Selected Projects','bar',recorded.map(p=>p.id),[{name:'Physical Progress (%)',values:recorded.map(p=>Number(p.progress))}],'%');
+ return chart+heading('Reports','Project Report','Print the selected project records.','<button class="btn" data-action="print">Print / Save PDF</button>')+`<section class="card panel"><select id="report-code"><option value="all">All accessible projects</option>${projects.map(p=>`<option ${reportCode===p.id?'selected':''} value="${h(p.id)}">${h(p.id)} · ${h(p.displayName||p.client)}</option>`).join('')}</select><div class="table-wrap"><table><thead><tr><th>Code</th><th>Client</th><th>Contract</th><th>Progress</th></tr></thead><tbody>${selected.map(p=>`<tr><td>${h(p.id)}</td><td>${h(p.client)}</td><td>${fmt(p.contractValue)} ${h(p.contractCurrency)}</td><td>${p.progress===null?'—':p.progress+'%'}</td></tr>`).join('')}</tbody></table></div></section>`;
 }
 
 function projectListV4(){
