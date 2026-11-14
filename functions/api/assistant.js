@@ -44,6 +44,7 @@ function projectLine(p,owner,assignees,monthly){
   internal_owner:owner||null,team_members:assignees,
   source_financial_progress_amount:p.source_total_progress,source_remaining_contract_amount:p.source_remaining_contract,
   source_notes:p.source_notes,
+  recorded_receipts:{'2024':p.received_2024,'2025':p.received_2025,'2026-01':p.jan_2026,'2026-02':p.feb_2026,'2026-03':p.mar_2026,'2026-04':p.apr_2026,'2026-05':p.may_2026,'2026-06':p.jun_2026},
   budget_2027_currency:currency,budget_2027_approved:total,budget_2027_working:working,
   budget_2027_months:rows.map(x=>[String(x.period_start).slice(0,7),num(x.baseline_amount),num(x.current_amount)])
  };
@@ -100,6 +101,11 @@ function directAnswer(question,view,allProjects,people,assignments){
    if(/progress/.test(q)&&!/start|end|finish/.test(q))return 'Project '+p.code+' physical progress: '+(num(p.physical_progress_percent)===null?absent:num(p.physical_progress_percent)+'%')+'.';
    return 'Project '+p.code+': planned start '+emptyIfMissing(p.planned_start)+'; planned finish '+emptyIfMissing(p.planned_finish)+'; forecast finish '+emptyIfMissing(p.forecast_finish)+'; physical progress '+(num(p.physical_progress_percent)===null?'not recorded':p.physical_progress_percent+'%')+'.';
   }
+  if(kind.finance&&/receiv|collect|payment.*received/.test(q)&&!kind.clause){
+   const entries=Object.entries(p.recorded_receipts||{}).filter(([,v])=>num(v)!==null);
+   if(!entries.length)return 'Recorded payments received for project '+p.code+' are not currently present in the portal.';
+   return 'Project '+p.code+' — payments received in the ongoing-project source register ('+say(p.contract_currency)+'; these are not expenses or P&L actuals):\n'+entries.map(([period,amount])=>period+': '+money(amount,p.contract_currency)).join('\n')+'.';
+  }
   if(kind.finance&&!kind.contract){
    if(/category|breakdown|personnel|manpower|salary|engineering|sg&a|hospitality|operating cost/.test(q)){
     const matching=group.categories.filter(x=>!(/manpower/.test(q))||/manpower/i.test(x.category));
@@ -129,7 +135,8 @@ export function onRequestPost({request,env}){return handler(async()=>{
  const question=String(body.question||'').trim();
  if(!question||question.length>1600)throw new HttpError(400,'Enter a question of at most 1,600 characters');
  const token=user.token,kind=classify(question);
- const projects=await rest(env,'ongoing_projects?select='+projectFields+'&order=project_code.asc&limit=200',{token});
+ const historicalReceiptFields='received_2024,received_2025,jan_2026,feb_2026,mar_2026,apr_2026,may_2026,jun_2026';
+ const projects=await rest(env,'ongoing_projects?select='+projectFields+','+historicalReceiptFields+'&order=project_code.asc&limit=200',{token});
  if(!projects?.length)return json({answer:'There are no projects currently available to your account in the portal.'});
  const selected=selectProjects(question,projects);
  // All queries below use the caller's JWT; Supabase RLS is the permissions boundary.
