@@ -91,6 +91,98 @@ function projectDocumentsPanel(p){
  const docLinks=(items,mode)=>items.length?items.map(d=>`<li><button class="plink" data-document-id="${h(d.id)}" data-document-mode="${mode==='contract'&&d.preview_pdf_path?'preview':'download'}">${h(d.original_name)}</button><span class="subline">${mode==='contract'?(d.preview_pdf_path?'View PDF':'Download original'):'Download original file'}</span></li>`).join(''):'<li>No files uploaded.</li>';
  return `<section class="card panel" style="margin-top:18px"><h2 class="paneltitle">Project documents</h2><div class="grid-two document-columns"><div><h3 class="section-label">Contract</h3><ul class="doc-list">${docLinks(contracts,'contract')}</ul></div><div><h3 class="section-label">Project Numbers</h3><ul class="doc-list">${docLinks(numbers,'numbers')}</ul></div></div><form id="project-document-form"><div class="doc-upload-fields"><label>Contract (Excel, PDF, Word)<input type="file" name="contract" accept=".pdf,.doc,.docx,.xls,.xlsx"></label><label>Project Numbers (Excel, PDF, Word)<input type="file" name="project_numbers" accept=".pdf,.doc,.docx,.xls,.xlsx"></label></div><button type="submit" class="btn">Upload documents</button></form></section>`;
 }
+async function officeZipEntries(file){
+ const bytes=new Uint8Array(await file.arrayBuffer()),view=new DataView(bytes.buffer),reader=new TextDecoder('utf-8'),texts={};
+ let e=-1;for(let i=bytes.length-22;i>=Math.max(0,bytes.length-65557);i--){if(view.getUint32(i,true)===0x06054b50){e=i;break;}}
+ if(e<0)throw Error('This is not a supported Office workbook or document.');
+ let offset=view.getUint32(e+16,true),count=view.getUint16(e+10,true),readCount=0;
+ if(count>3000)throw Error('Too many files in document');
+ for(let j=0;j<count;j++){
+  if(view.getUint32(offset,true)!==0x02014b50)throw Error('Invalid document archive');
+  const method=view.getUint16(offset+10,true),compressed=view.getUint32(offset+20,true),plain=view.getUint32(offset+24,true),nameLen=view.getUint16(offset+28,true),extra=view.getUint16(offset+30,true),comment=view.getUint16(offset+32,true),local=view.getUint32(offset+42,true);
+  const name=reader.decode(bytes.subarray(offset+46,offset+46+nameLen));offset+=46+nameLen+extra+comment;
+  if(!(/^(xl\/sharedStrings\.xml|xl\/workbook\.xml|xl\/_rels\/workbook\.xml\.rels|xl\/worksheets\/sheet\d+\.xml|word\/document\.xml)$/.test(name)))continue;
+  if(plain>5e6||compressed>5e6||readCount+plain>18e6)throw Error('Document content exceeds preview limit');
+  if(view.getUint32(local,true)!==0x04034b50)throw Error('Invalid file header');
+  const start=local+30+view.getUint16(local+26,true)+view.getUint16(local+28,true);
+  if(start+compressed>bytes.length)throw Error('Incomplete document');
+  let data=bytes.subarray(start,start+compressed);
+  if(method===8){if(typeof DecompressionStream!=='function')throw Error('Compressed Office extraction is not supported by this browser');const stream=new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));data=new Uint8Array(await new Response(stream).arrayBuffer());}
+  else if(method!==0)throw Error('Unsupported Office compression');
+  if(data.length>5e6)throw Error('Extracted content too large');
+  texts[name]=reader.decode(data);readCount+=data.length;
+ }
+ return texts;
+}
+function parseOfficeRows(xml,shared){
+ const dom=new DOMParser().parseFromString(xml,'application/xml');if(dom.querySelector('parsererror'))throw Error('The file has invalid spreadsheet XML');
+ const rows=[];
+ const all=Array.from(dom.getElementsByTagName('row')).slice(0,300);
+ for(const row of all){const out=[];for(const c of Array.from(row.getElementsByTagName('c')).slice(0,200)){
+  const ref=c.getAttribute('r')||'',col=ref.match(/^[A-Z]+/)?.[0]||'A';
+  let idx=0;for(const x of col)idx=idx*26+x.charCodeAt(0)-64;idx--;
+  const raw=c.getElementsByTagName('v')[0]?.textContent||'';
+  const value=c.getAttribute('t')==='s'?(shared[+raw]??''):c.getAttribute('t')==='inlineStr'?(c.getElementsByTagName('is')[0]?.textContent||''):raw;
+  if(value!=='')out[idx]=String(value).trim();
+ }
+ if(out.some(x=>x!==undefined&&x!==''))rows.push(out);}
+ return rows;
+}
+function inspectOfficeRows(rows,fileName){
+ const fields={},budgets=[],aliases={
+  projectCode:['project code','project id','job code'],
+  client:['client','customer','contracting organization'],
+  scope:['project name','project scope','project description'],
+  contractValue:['contract value','contract amount','contract price'],
+  currency:['currency','contract currency'],
+  location:['location','project location','site location'],
+  durationMonths:['project months','duration months','project duration'],
+  plannedStart:['planned start date','start date'],
+  plannedFinish:['planned finish date','finish date','completion date']
+ };
+ const normalize=s=>String(s||'').toLowerCase().replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim();
+ const parseAmount=s=>{const v=String(s||'').replace(/,/g,'').replace(/[^0-9.+-]/g,'');return v!==''&&Number.isFinite(Number(v))?Number(v):null};
+ for(let r=0;r<Math.min(75,rows.length);r++){const row=rows[r];for(let c=0;c<Math.min(70,row.length);c++){
+  const label=normalize(row[c]);if(!label||label.length>50)continue;
+  for(const [key,names] of Object.entries(aliases)){if(fields[key]!==undefined||!names.includes(label))continue;
+   const v=(row[c+1]||rows[r+1]?.[c]||'').trim();if(!v||v.length>300)continue;
+   if(['contractValue','durationMonths'].includes(key)){const n=parseAmount(v);if(n!==null)fields[key]=n;}
+   else if(key==='projectCode'){if(/^\d{2,5}(\.\d{1,3})?$/.test(v))fields[key]=v;}
+   else if(key==='currency'){if(['EGP','USD','EUR','Other'].includes(v))fields[key]=v;}
+   else if(key==='plannedStart'||key==='plannedFinish'){
+    const d=/^\d{4}-\d{2}-\d{2}$/.test(v)?v:null;if(d)fields[key]=d;
+   }else fields[key]=v;
+  }
+ }}
+ // A recognizable row of monthly budget headings followed by one project-specific row.
+ const monthNames=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+ const headerIndex=rows.findIndex(row=>row.filter(x=>x&&monthNames.some(m=>normalize(x).startsWith(m+' '))).length>=3);
+ const fileText=(rows.slice(0,4).map(r=>r.join(' ')).join(' ')+' '+fileName);
+ const year=fileText.match(/\b20[2-9]\d\b/)?.[0];
+ let note='';
+ if(headerIndex>=0&&year){
+  const headers=rows[headerIndex],possibles=rows.slice(headerIndex+1).filter(r=>r.some(x=>x!==undefined&&x!==''));
+  const targetCode=String(newProjectInputs?.projectCode||fields.projectCode||'');
+  const target=targetCode?possibles.find(r=>r.some(v=>String(v||'')===targetCode)):possibles.length===1?possibles[0]:null;
+  if(target){
+   headers.forEach((h,i)=>{if(!h)return;const key=normalize(h),ix=monthNames.findIndex(m=>key===m||key.startsWith(m+' '));if(ix<0)return;const raw=target[i];const v=parseAmount(raw);if(v===null)return;budgets.push({period:`${year}-${String(ix+1).padStart(2,'0')}-01`,amount:v,currency:fields.currency||'EGP'});});
+  }else if(possibles.length>1)note='The workbook contains multiple project rows. Select a project-specific file or enter the figures manually.';
+ }
+ return {fields,monthlyBudgets:budgets,note:note||(!Object.keys(fields).length&&!budgets.length?'No matching project fields were recognized; you can still attach the file and enter the details manually.':'')};
+}
+async function extractProjectNumbers(file){
+ const ext=(file.name.split('.').pop()||'').toLowerCase();
+ if(ext==='xlsx'){
+  const z=await officeZipEntries(file),sharedXML=z['xl/sharedStrings.xml']||'',shared=[];
+  if(sharedXML){const ss=new DOMParser().parseFromString(sharedXML,'application/xml');for(const node of ss.getElementsByTagName('si'))shared.push(node.textContent||'');}
+  const sheets=Object.keys(z).filter(x=>/^xl\/worksheets\/sheet\d+\.xml$/.test(x)).sort().slice(0,3);
+  if(!sheets.length)throw Error('No worksheets found in Excel document');
+  for(const name of sheets){const data=inspectOfficeRows(parseOfficeRows(z[name],shared),file.name);if(Object.keys(data.fields).length||data.monthlyBudgets.length)return data;}
+  return {fields:{},monthlyBudgets:[],note:'No matching project fields were recognized. Please enter the values manually.'};
+ }
+ if(ext==='docx'){const z=await officeZipEntries(file);return {fields:{},monthlyBudgets:[],note:z['word/document.xml']?'Word documents are stored; review and enter any figures manually.':'Unable to read figures from this Word document.'};}
+ return {fields:{},monthlyBudgets:[],note:'The file will be preserved. Automatic number extraction currently works with standard .xlsx workbooks; review and enter other formats manually.'};
+}
 function newProjectView(){
  const f=newProjectInputs||{},field=(name,label,type='text',required=false,extra='')=>`<label>${h(label)}<input name="${name}" type="${type}" value="${h(f[name]??'')}" ${required?'required':''} ${extra}></label>`;
  const recognized=numberDraft?.fields?Object.entries(numberDraft.fields):[];
