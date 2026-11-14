@@ -120,6 +120,11 @@ function projectViewV4(){
  const totals=d?.monthly||[],lines=d?.lines||[],actuals=d?.actuals||[],docs=d?.documents||[],history=d?.history||[];
  return heading('Projects',`${h(p.id)} · ${h(p.displayName||p.client)}`,h(p.scope||''),'<button class="btn" data-v4="back">Back</button><button class="btn primary" data-v4="edit">Edit Project</button>')+
  `<section class="card panel v4-section"><h2 class="paneltitle">Project information</h2><div class="v4-facts">${line('Internal owner',p.internalOwnerId===me.userId?me.displayName:((detailsV4?.people||[]).find(u=>u.id===p.internalOwnerId)?.display_name||'Not assigned'))}${line('Client / contracting organization',p.client)}${line('Contract value',fmt(p.contractValue)+' '+p.contractCurrency)}${line('Physical progress',p.progress===null?'Not recorded':p.progress+'%')}${line('Location',p.location)}${line('Start date',p.startDate)}${line('Planned finish',p.baselineFinish)}${line('Forecast finish',p.forecastFinish)}${line('Duration (months)',p.durationMonths)}</div></section>
+ ${lead()?`<section class="card panel v4-section"><h2 class="paneltitle">Project team</h2>
+ <div class="v4-file">${(d?.assignments||[]).map(a=>h((d?.people||[]).find(u=>u.id===a.user_id)?.display_name||'Assigned employee')).join(', ')||'No team members assigned.'}</div>
+ <form id="assign-v4" class="v4-inline"><label>Assign Team Member
+ <select name="userId" required><option value="">Select employee</option>${(d?.people||[]).filter(u=>u.role==='team_member'&&!(d?.assignments||[]).some(a=>a.user_id===u.id)).map(u=>`<option value="${h(u.id)}">${h(u.display_name)}</option>`).join('')}</select></label>
+ <button class="btn" type="submit">Assign</button></form></section>`:''}
  <section class="card panel v4-section"><h2 class="paneltitle">Monthly budget</h2>${totals.length?`<div class="table-wrap"><table><thead><tr><th>Period</th><th>Currency</th><th>Approved</th><th>Working budget</th><th></th></tr></thead><tbody>${totals.map(r=>`<tr><td>${h(r.period_start)}</td><td>${h(r.currency)}</td><td>${fmt(r.baseline_amount===null?null:Number(r.baseline_amount))}</td><td><input class="v4-amount" data-money="monthly-${h(r.period_start)}" type="number" step="0.01" value="${r.current_amount??''}"></td><td><button class="btn small" data-v4="save-money" data-kind="monthly" data-entry="${h(r.period_start)}" data-updated="${h(r.updated_at)}">Save</button></td></tr>`).join('')}</tbody></table></div>`:'<p>No budget entered.</p>'}<form id="add-period-v4" class="v4-inline"><label>Add month or year <input type="month" name="period" required></label><button class="btn">Add month</button></form></section>
  <section class="card panel v4-section"><h2 class="paneltitle">Detailed budget &amp; COGS</h2>${lines.length?`<details><summary>View ${lines.length} budget entries</summary><div class="table-wrap v4-scroll"><table><thead><tr><th>Period</th><th>Category</th><th>Detail</th><th>Approved</th><th>Working</th><th></th></tr></thead><tbody>${lines.map(r=>`<tr><td>${h(r.period_start)}</td><td>${h(r.category)}</td><td>${h(r.detail)}</td><td>${fmt(r.baseline_amount===null?null:Number(r.baseline_amount))} ${h(r.currency)}</td><td><input class="v4-amount" data-money="line-${r.id}" type="number" step="0.01" value="${r.current_amount??''}"></td><td><button class="btn small" data-v4="save-money" data-kind="line" data-entry="${r.id}" data-updated="${h(r.updated_at)}">Save</button></td></tr>`).join('')}</tbody></table></div></details>`:'<p>No cost details entered.</p>'}</section>
  <section class="card panel v4-section"><h2 class="paneltitle">Historical P&amp;L actuals</h2>${actuals.length?`<div class="table-wrap"><table><thead><tr><th>Period</th><th>Account</th><th>Currency</th><th>Amount</th><th></th></tr></thead><tbody>${actuals.map(r=>`<tr><td>${h(r.period_start)}</td><td>${h(r.account_name)}</td><td>${h(r.currency)}</td><td>${lead()?`<input class="v4-amount" data-money="actual-${r.id}" type="number" step="0.01" value="${r.amount}">`:fmt(Number(r.amount))}</td><td>${lead()?`<button class="btn small" data-v4="save-money" data-kind="actual" data-entry="${r.id}" data-updated="${h(r.updated_at)}">Save</button>`:''}</td></tr>`).join('')}</tbody></table></div>`:'<p>No historical P&amp;L actuals recorded.</p>'}</section>
@@ -135,7 +140,7 @@ function renderSuggestedV4(proposed){
 function editProjectV4(){
  const p=fromProject(chosen);if(!p)return projectsPage();
  const data=[['client','Client','text',p.client],['scope','Project scope','text',p.scope],['contractValue','Contract value','number',p.contractValue],['progress','Physical progress (%)','number',p.progress],['location','Location','text',p.location],['startDate','Planned start','date',p.startDate],['baselineFinish','Planned finish','date',p.baselineFinish],['forecastFinish','Forecast finish','date',p.forecastFinish],['durationMonths','Duration months','number',p.durationMonths]];
- return heading('Projects','Edit Project',h(p.id),'<button class="btn" data-v4="cancel-edit">Cancel</button>')+`<section class="card panel"><form id="edit-v4"><div class="v4-formgrid">${data.map(([key,label,type,value])=>`<label>${label}<input name="${key}" type="${type}" ${type==='number'?'step="0.01"':''} value="${h(String(value??''))}"></label>`).join('')}<label>Status<select name="status">${['Active','On Hold','Completed','Cancelled'].map(s=>`<option ${s===p.status?'selected':''}>${s}</option>`).join('')}</select></label></div><div class="form-actions"><button class="btn primary">Save changes</button></div></form></section>`;
+ return heading('Projects','Edit Project',h(p.id),'<button class="btn" data-v4="cancel-edit">Cancel</button>')+`<section class="card panel"><form id="edit-v4"><div class="v4-formgrid">${data.map(([key,label,type,value])=>`<label>${label}<input name="${key}" type="${type}" ${type==='number'?'step="0.01"':''} value="${h(String(value??''))}"></label>`).join('')}${lead()?`<label>Internal project owner<select name="internalOwnerId"><option value="">Not assigned</option>${(detailsV4?.people||[]).map(u=>`<option value="${h(u.id)}" ${u.id===p.internalOwnerId?'selected':''}>${h(u.display_name)}</option>`).join('')}</select></label>`:''}<label>Status<select name="status">${['Active','On Hold','Completed','Cancelled'].map(s=>`<option ${s===p.status?'selected':''}>${s}</option>`).join('')}</select></label></div><div class="form-actions"><button class="btn primary">Save changes</button></div></form></section>`;
 }
 
 function financePageV4(){
@@ -267,7 +272,7 @@ ROOT.addEventListener('change',async event=>{
 });
 ROOT.addEventListener('submit',async event=>{
  const form=event.target,id=form.id;
- if(!['ai-v4','create-v4','edit-v4','add-period-v4','contract-v4','numbers-v4'].includes(id))return;
+ if(!['ai-v4','create-v4','edit-v4','add-period-v4','contract-v4','numbers-v4','assign-v4'].includes(id))return;
  event.preventDefault();
  if(id==='ai-v4'){
   const question=String(new FormData(form).get('question')||'').trim();
@@ -306,10 +311,19 @@ ROOT.addEventListener('submit',async event=>{
    progress:str('progress')===''?null:Number(str('progress')),location:str('location')||null,
    startDate:str('startDate')||null,baselineFinish:str('baselineFinish')||null,
    forecastFinish:str('forecastFinish')||null,durationMonths:str('durationMonths')===''?null:Number(str('durationMonths')),status:str('status')};
+  if(lead())changes.internalOwnerId=str('internalOwnerId')||null;
   try{const r=await api('/api/projects/'+encodeURIComponent(chosen),{method:'PUT',body:{lastEdited:current.lastEdited,changes}});
    const i=projects.findIndex(p=>p.id===chosen);if(i>=0)projects[i]=r.project;
    edit=false;await loadDetailsV4();showNotice('Project updated.');
   }catch(err){setError(err)}
+  return;
+ }
+ if(id==='assign-v4'){
+  const userId=String(new FormData(form).get('userId')||'');
+  if(!userId)return;
+  try{await api('/api/assignments',{method:'POST',body:{projectCode:chosen,userId}});
+   await loadDetailsV4();showNotice('Team Member assigned.');}
+  catch(err){setError(err)}
   return;
  }
  if(id==='add-period-v4'){
