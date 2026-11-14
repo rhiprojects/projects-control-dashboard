@@ -1,0 +1,4 @@
+# Public parameters used to contact Supabase (only these two values are needed for the read/edit foundation)
+SUPABASE_URL=https://vhbpnshbcggocfhffpbx.supabase.co
+SUPABASE_PUBLISHABLE_KEY=replace_with_supabase_publishable_key
+# No service_role/secret key or Notion token is needed for this release.
