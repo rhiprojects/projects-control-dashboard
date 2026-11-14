@@ -57,7 +57,7 @@ const active=()=>projects.filter(p=>p.status==='Active');
 const sumFor=(currency)=>active().filter(p=>p.contractCurrency===currency&&p.contractValue!==null).reduce((sum,p)=>sum+p.contractValue,0);
 const missing=(field)=>active().filter(p=>p[field]===null).length;
 function projectCard(p){return `<div class="card projectcard"><div class="projecttop"><div><div class="projectid">Project ${h(p.id)}</div><h3 class="projectname">${h(p.displayName||p.client||p.name)}</h3><p class="projectclient">${h(p.name)}</p></div><span class="pill ${p.status==='Active'?'green':'neutral'}">${h(p.status||'Not supplied')}</span></div><div class="projectstats"><span>Contract Value</span><strong>${fmt(p.contractValue)} ${h(p.contractCurrency||'')}</strong></div><div class="projectfoot"><span>Physical progress: <strong>${p.progress===null?'Not Recorded':h(p.progress)+'%'}</strong></span><button class="btn small" data-project="${h(p.id)}">Open Project</button></div></div>`}
-function render(){ROOT.innerHTML=!me?loginView():layout(creatingV4?createV4():chosen?(edit?editProjectV4():projectViewV4()):page==='overview'?overviewV4():page==='projects'?projectListV4():page==='financials'?financePageV4():page==='milestones'?milestonesPageV4():page==='reports'?reportPageV4():page==='admin'?adminPageV4():overviewV4())}
+function render(){if(window.echarts){ROOT.querySelectorAll('.v7-chart').forEach(el=>{const chart=window.echarts.getInstanceByDom(el);if(chart)chart.dispose();});}ROOT.innerHTML=!me?loginView():layout(creatingV4?createV4():chosen?(edit?editProjectV4():projectViewV4()):page==='overview'?overviewV4():page==='projects'?projectListV4():page==='financials'?financePageV4():page==='milestones'?milestonesPageV4():page==='reports'?reportPageV4():page==='admin'?adminPageV4():overviewV4());v7RenderCharts()}
 function clearToast(){error='';notice=''}
 ROOT.addEventListener('click',async e=>{
  const el=e.target.closest('button');if(!el)return;
@@ -111,6 +111,53 @@ function v5Arrow(p){
  const result=v5Health(p.id,p.contractCurrency);
  return result?'<span class="v5-trend '+result.direction+'" title="Recorded Revenue minus COGS only: '+h(fmt(result.margin))+' '+h(p.contractCurrency)+'" aria-label="'+(result.direction==='up'?'Positive':'Negative')+' recorded margin">'+(result.direction==='up'?'↗':'↘')+'</span>':'<span class="v5-trend unavailable" title="Recorded margin unavailable until Revenue and COGS actuals are mapped" aria-label="Financial margin unavailable">—</span>';
 }
+/* v7: Presentation-only ECharts. Existing records and tables remain authoritative. */
+let v7ChartsPromise=null;
+function v7Chart(title,kind,labels,series,currency=''){
+ if(!labels.length||!series.length)return '';
+ const payload=JSON.stringify({kind,labels,series,currency});
+ return '<div class="v7-chart-panel"><h3>'+h(title)+'</h3><div class="v7-chart" role="img" aria-label="'+h(title)+'" data-chart="'+h(payload)+'"></div><p class="v7-chart-note">Values reflect available records only. Refer to the table for exact figures.</p></div>';
+}
+function v7LoadCharts(){
+ if(window.echarts)return Promise.resolve(window.echarts);
+ if(v7ChartsPromise)return v7ChartsPromise;
+ v7ChartsPromise=new Promise((resolve,reject)=>{
+  const script=document.createElement('script');
+  script.src='https://cdn.jsdelivr.net/npm/echarts@5.6.0/dist/echarts.min.js';
+  script.onload=()=>window.echarts?resolve(window.echarts):reject(Error('Charts unavailable'));
+  script.onerror=()=>reject(Error('Charts unavailable'));
+  document.head.appendChild(script);
+ }).catch(e=>{v7ChartsPromise=null;throw e});
+ return v7ChartsPromise;
+}
+async function v7RenderCharts(){
+ const targets=[...ROOT.querySelectorAll('.v7-chart')];
+ if(!targets.length)return;
+ let echarts;
+ try{echarts=await v7LoadCharts()}catch(e){targets.forEach(el=>{if(el.isConnected)el.textContent='Chart unavailable; detailed figures remain accessible in the tables.'});return;}
+ targets.forEach(el=>{
+  if(!el.isConnected)return;
+  try{
+   const data=JSON.parse(el.dataset.chart);
+   const chart=echarts.init(el,null,{renderer:'svg'});
+   const option={
+    animation:false,
+    tooltip:{trigger:'axis',valueFormatter:v=>Number(v).toLocaleString('en-US',{maximumFractionDigits:2})+(data.currency?' '+data.currency:'')},
+    legend:{top:0,type:'scroll'},
+    grid:{left:16,right:22,top:48,bottom:48,containLabel:true},
+    xAxis:{type:'category',data:data.labels,axisLabel:{hideOverlap:true}},
+    yAxis:{type:'value',axisLabel:{formatter:v=>Number(v).toLocaleString('en-US')}},
+    series:data.series.map((x,i)=>({name:x.name,type:data.kind==='line'?'line':'bar',data:x.values,smooth:false,barMaxWidth:36,itemStyle:{color:['#0f766e','#3268b5','#a76e0b','#64748b'][i%4]}}))
+   };
+   chart.setOption(option);
+   if(typeof ResizeObserver==='function'){
+    const observer=new ResizeObserver(()=>{if(el.isConnected)chart.resize();else{observer.disconnect();chart.dispose()}});
+    observer.observe(el);
+   }
+  }catch(e){el.textContent='Chart unavailable; detailed figures remain accessible in the tables.';}
+ });
+}
+
 function v5FinancialPanel(p){
  const lines=v5Rows(p.id),currency=p.contractCurrency;
  const valid=lines.filter(x=>x.currency===currency&&v5Number(x.baseline_amount)!==null);
@@ -123,6 +170,8 @@ function v5FinancialPanel(p){
  const monthly=[...new Set(valid.map(x=>x.period_start))].sort().map(month=>({month,amount:valid.filter(x=>x.period_start===month).reduce((n,x)=>n+Number(x.baseline_amount),0)}));
  return '<section class="card panel v4-section v5-financial" aria-label="Financial analysis"><h2 class="paneltitle">Project Financial Analysis</h2><p class="v5-context">2027 approved budget COGS. Contract amounts and historical actuals are separate figures.</p>'+
  '<div class="v5-metrics"><div><small>Original Contract Value · '+h(currency)+'</small><strong>'+v5Money(p.contractValue,currency)+'</strong></div><div><small>2027 Approved COGS · '+h(currency)+'</small><strong>'+v5Money(valid.length?total:null,currency)+'</strong></div><div><small>2027 Working COGS · '+h(currency)+'</small><strong>'+v5Money(working.length?current:null,currency)+'</strong></div><div><small>Recorded P&amp;L Margin · '+h(currency)+'</small><strong>'+v5Money(health?.margin??null,currency)+'</strong></div></div>'+
+ v7Chart('2027 Monthly COGS — Approved vs Working','bar',[...new Set(lines.filter(x=>x.currency===currency).map(x=>String(x.period_start).slice(0,7)))].sort(),['baseline_amount','current_amount'].map((field,i)=>({name:i?'Working COGS':'Approved COGS',values:[...new Set(lines.filter(x=>x.currency===currency).map(x=>String(x.period_start).slice(0,7)))].sort().map(month=>{const rows=lines.filter(x=>x.currency===currency&&String(x.period_start).startsWith(month)&&v5Number(x[field])!==null);return rows.length?rows.reduce((n,x)=>n+Number(x[field]),0):null})})),currency)+
+ v7Chart('2027 COGS By Category','bar',totals.map(x=>x.category),[{name:'Approved COGS',values:totals.map(x=>x.amount)}],currency)+
  '<div class="v5-analysis-grid"><div><h3>COGS By Category</h3><p class="v5-context">Bars are scaled to the largest category, not the total COGS or contract value.</p>'+ (totals.length?totals.map(x=>'<div class="v5-bar-row"><div><span>'+h(x.category)+'</span><strong>'+fmt(x.amount)+' '+h(currency)+'</strong></div><div class="v5-track"><i style="width:'+Math.max(0,Math.min(100,x.amount/maximum*100))+'%"></i></div></div>').join(''):'<p>No approved 2027 COGS recorded in the contract currency.</p>')+'</div><div><h3>2027 Monthly COGS</h3>'+(monthly.length?'<div class="table-wrap"><table><thead><tr><th>Month</th><th>Approved COGS</th></tr></thead><tbody>'+monthly.map(x=>'<tr><td>'+h(x.month.slice(0,7))+'</td><td>'+fmt(x.amount)+' '+h(currency)+'</td></tr>').join('')+'</tbody></table></div>':'<p>No approved 2027 monthly COGS recorded.</p>')+'</div></div></section>';
 }
 function v5TeamPanel(){
@@ -130,10 +179,20 @@ function v5TeamPanel(){
  const people=(dashboardV5.people||[]).filter(x=>x.active&&x.role==='team_member');
  const assignments=(dashboardV5.assignments||[]).filter(x=>projects.some(p=>p.id===x.project_code));
  return '<section class="card panel v4-section"><h2 class="paneltitle">Team Workload</h2><p class="v5-context">Assigned projects for active team members within your accessible projects. These are counts, not hours or utilization.</p>'+
- (people.length?'<div class="table-wrap"><table class="v6-team-table"><thead><tr><th>Team Member</th><th>Assigned Projects</th><th>Project Codes</th></tr></thead><tbody>'+people.map(u=>{const codes=[...new Set(assignments.filter(x=>x.user_id===u.id).map(x=>x.project_code))];return '<tr><td><strong>'+h(u.display_name)+'</strong></td><td class="v6-count">'+codes.length+'</td><td>'+h(codes.join(', ')||'Unassigned')+'</td></tr>'}).join('')+'</tbody></table></div>':'<p>No active team members are available.</p>')+'</section>';
+ (people.length?v7Chart('Assigned Projects By Team Member','bar',people.map(x=>x.display_name),[{name:'Assigned Projects',values:people.map(u=>new Set(assignments.filter(x=>x.user_id===u.id).map(x=>x.project_code)).size)}])+'<div class="table-wrap"><table class="v6-team-table"><thead><tr><th>Team Member</th><th>Assigned Projects</th><th>Project Codes</th></tr></thead><tbody>'+people.map(u=>{const codes=[...new Set(assignments.filter(x=>x.user_id===u.id).map(x=>x.project_code))];return '<tr><td><strong>'+h(u.display_name)+'</strong></td><td class="v6-count">'+codes.length+'</td><td>'+h(codes.join(', ')||'Unassigned')+'</td></tr>'}).join('')+'</tbody></table></div>':'<p>No active team members are available.</p>')+'</section>';
 }
 function v5Portfolio(){
- return '<section class="card panel v4-section"><div class="panelhead"><h2 class="paneltitle">Project Financial Overview</h2></div><p class="v5-context">2027 approved COGS in each project currency. Arrows use recorded Revenue minus COGS only; neutral means insufficient actual data.</p><div class="v5-portfolio-grid">'+active().map(p=>'<div class="v5-portfolio-item"><div><strong>'+h(p.id)+' · '+h(p.displayName||p.client)+'</strong>'+v5Arrow(p)+'</div><small>2027 Approved COGS · '+h(p.contractCurrency)+'</small><strong>'+v5Money((()=>{const a=v5Rows(p.id).filter(x=>x.currency===p.contractCurrency&&v5Number(x.baseline_amount)!==null);return a.length?a.reduce((n,x)=>n+Number(x.baseline_amount),0):null})(),p.contractCurrency)+'</strong><button class="btn small" data-project="'+h(p.id)+'">View Financial Analysis</button></div>').join('')+'</div></section>';
+ const currencies=[...new Set(active().map(p=>p.contractCurrency).filter(Boolean))];
+ const charts=currencies.map(currency=>{
+  const eligible=active().filter(p=>p.contractCurrency===currency);
+  const labels=[],values=[];
+  eligible.forEach(p=>{
+   const rows=v5Rows(p.id).filter(x=>x.currency===currency&&v5Number(x.baseline_amount)!==null);
+   if(rows.length){labels.push(p.id);values.push(rows.reduce((n,x)=>n+Number(x.baseline_amount),0));}
+  });
+  return v7Chart('2027 Approved COGS By Project · '+currency,'bar',labels,[{name:'Approved COGS',values}],currency);
+ }).join('');
+ return charts+'<section class="card panel v4-section"><div class="panelhead"><h2 class="paneltitle">Project Financial Overview</h2></div><p class="v5-context">2027 approved COGS in each project currency. Arrows use recorded Revenue minus COGS only; neutral means insufficient actual data.</p><div class="v5-portfolio-grid">'+active().map(p=>'<div class="v5-portfolio-item"><div><strong>'+h(p.id)+' · '+h(p.displayName||p.client)+'</strong>'+v5Arrow(p)+'</div><small>2027 Approved COGS · '+h(p.contractCurrency)+'</small><strong>'+v5Money((()=>{const a=v5Rows(p.id).filter(x=>x.currency===p.contractCurrency&&v5Number(x.baseline_amount)!==null);return a.length?a.reduce((n,x)=>n+Number(x.baseline_amount),0):null})(),p.contractCurrency)+'</strong><button class="btn small" data-project="'+h(p.id)+'">View Financial Analysis</button></div>').join('')+'</div></section>';
 }
 
 function overviewV4(){
@@ -181,12 +240,16 @@ function financePageV4(){
 }
 
 function milestonesPageV4(){
- return heading('Milestones','Project Schedules','Dates and progress for authorized projects.')+`<div class="card tablecard"><div class="table-wrap"><table><thead><tr><th>Project</th><th>Client</th><th>Start</th><th>Planned finish</th><th>Forecast finish</th><th>Progress</th></tr></thead><tbody>${projects.map(p=>`<tr><td><button class="plink" data-project="${h(p.id)}">${h(p.id)}</button></td><td>${h(p.client)}</td><td>${h(p.startDate||'—')}</td><td>${h(p.baselineFinish||'—')}</td><td>${h(p.forecastFinish||'—')}</td><td>${p.progress===null?'—':p.progress+'%'}</td></tr>`).join('')}</tbody></table></div></div>`;
+ const recorded=projects.filter(p=>v5Number(p.progress)!==null);
+ const progressChart=v7Chart('Recorded Physical Progress By Project','bar',recorded.map(p=>p.id),[{name:'Physical Progress (%)',values:recorded.map(p=>Number(p.progress))}],'%');
+ return progressChart+heading('Milestones','Project Schedules','Dates and progress for authorized projects.')+`<div class="card tablecard"><div class="table-wrap"><table><thead><tr><th>Project</th><th>Client</th><th>Start</th><th>Planned finish</th><th>Forecast finish</th><th>Progress</th></tr></thead><tbody>${projects.map(p=>`<tr><td><button class="plink" data-project="${h(p.id)}">${h(p.id)}</button></td><td>${h(p.client)}</td><td>${h(p.startDate||'—')}</td><td>${h(p.baselineFinish||'—')}</td><td>${h(p.forecastFinish||'—')}</td><td>${p.progress===null?'—':p.progress+'%'}</td></tr>`).join('')}</tbody></table></div></div>`;
 }
 
 function reportPageV4(){
  const selected=reportCode==='all'?projects:projects.filter(p=>p.id===reportCode);
- return heading('Reports','Project Report','Print the selected project records.','<button class="btn" data-action="print">Print / Save PDF</button>')+`<section class="card panel"><select id="report-code"><option value="all">All accessible projects</option>${projects.map(p=>`<option ${reportCode===p.id?'selected':''} value="${h(p.id)}">${h(p.id)} · ${h(p.displayName||p.client)}</option>`).join('')}</select><div class="table-wrap"><table><thead><tr><th>Code</th><th>Client</th><th>Contract</th><th>Progress</th></tr></thead><tbody>${selected.map(p=>`<tr><td>${h(p.id)}</td><td>${h(p.client)}</td><td>${fmt(p.contractValue)} ${h(p.contractCurrency)}</td><td>${p.progress===null?'—':p.progress+'%'}</td></tr>`).join('')}</tbody></table></div></section>`;
+ const recorded=selected.filter(p=>v5Number(p.progress)!==null);
+ const chart=v7Chart('Recorded Physical Progress · Selected Projects','bar',recorded.map(p=>p.id),[{name:'Physical Progress (%)',values:recorded.map(p=>Number(p.progress))}],'%');
+ return chart+heading('Reports','Project Report','Print the selected project records.','<button class="btn" data-action="print">Print / Save PDF</button>')+`<section class="card panel"><select id="report-code"><option value="all">All accessible projects</option>${projects.map(p=>`<option ${reportCode===p.id?'selected':''} value="${h(p.id)}">${h(p.id)} · ${h(p.displayName||p.client)}</option>`).join('')}</select><div class="table-wrap"><table><thead><tr><th>Code</th><th>Client</th><th>Contract</th><th>Progress</th></tr></thead><tbody>${selected.map(p=>`<tr><td>${h(p.id)}</td><td>${h(p.client)}</td><td>${fmt(p.contractValue)} ${h(p.contractCurrency)}</td><td>${p.progress===null?'—':p.progress+'%'}</td></tr>`).join('')}</tbody></table></div></section>`;
 }
 
 function projectListV4(){
