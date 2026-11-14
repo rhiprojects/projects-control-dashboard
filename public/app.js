@@ -9,7 +9,7 @@ const date=(d)=>d?new Date(d).toLocaleDateString('en-GB'):'—';
 const roleName={super_admin:'Super Admin',head_of_projects:'Head of Projects',team_member:'Team Member'};
 const iconPaths={"grid":"<rect x=\"3\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"3\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/>","projects":"<rect x=\"3\" y=\"5\" width=\"18\" height=\"15\" rx=\"2\"/><path d=\"M3 9h18M7 3v4\"/>","chart":"<path d=\"M4 20V11m6 9V4m6 16v-8m5 8H2\"/>","calendar":"<rect x=\"3\" y=\"5\" width=\"18\" height=\"16\" rx=\"2\"/><path d=\"M7 3v4m10-4v4M3 10h18\"/>","reports":"<path d=\"M6 3h10l4 4v14H6zM16 3v5h4M9 12h8M9 16h8\"/>","admin":"<circle cx=\"12\" cy=\"12\" r=\"4\"/><path d=\"M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2m0-14-2 2M7 17l-2 2\"/>","assistant":"<path d=\"M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z\"/>","contract":"<path d=\"M6 3h10l4 4v14H6zM16 3v5h4M9 12h8M9 16h6\"/>","money":"<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M15 8c-1-2-6-2-6 1 0 3 6 1 6 5 0 3-5 4-7 1M12 5v14\"/>","progress":"<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v6m0 4h.01\"/>"};
 const ico=name=>'<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+(iconPaths[name]||iconPaths.grid)+'</svg>';
-let dashboardV5={budgetLines:[],actuals:[],assignments:[],people:[]};
+let dashboardV5={budgetLines:[],monthlyBudgets:[],actuals:[],assignments:[],people:[]};
 let cfg=null,auth=null,me=null,projects=[],adminData={users:[],assignments:[]},page='overview',chosen=null,edit=false,busy=false,error='',notice='',filter='',reportCode='all',question='',answer='';
 const lead=()=>me?.role==='super_admin'||me?.role==='head_of_projects';
 const admin=()=>me?.role==='super_admin';
@@ -22,7 +22,7 @@ async function init(){
  render();
 }
 const saveAuth=()=>{if(auth)sessionStorage.setItem('projectsControlSession',JSON.stringify(auth));else sessionStorage.removeItem('projectsControlSession')};
-function logout(refresh=true){auth=null;me=null;projects=[];dashboardV5={budgetLines:[],actuals:[],assignments:[],people:[]};adminData={users:[],assignments:[]};page='overview';chosen=null;edit=false;chatV4=[];detailsV4=null;creatingV4=false;pendingV4=null;suggestionsV4={};saveAuth();if(refresh)render()}
+function logout(refresh=true){auth=null;me=null;projects=[];dashboardV5={budgetLines:[],monthlyBudgets:[],actuals:[],assignments:[],people:[]};adminData={users:[],assignments:[]};page='overview';chosen=null;edit=false;chatV4=[];detailsV4=null;creatingV4=false;pendingV4=null;suggestionsV4={};saveAuth();if(refresh)render()}
 async function refreshToken(){if(!auth?.refresh_token)return false;
  const r=await fetch(cfg.supabaseUrl+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:cfg.publishableKey,'content-type':'application/json'},body:JSON.stringify({refresh_token:auth.refresh_token})});
  if(!r.ok){logout(false);return false}auth=await r.json();saveAuth();return true;
@@ -42,7 +42,7 @@ async function login(email,password){
  chatV4=[];detailsV4=null;pendingV4=null;auth=v;saveAuth();try{await ready()}catch(e){logout(false);throw e}
 }
 async function ready(){const s=await api('/api/session');me=s;const r=await api('/api/projects');projects=r.projects||[];await loadDashboardV5();if(admin())await loadAdmin();}
-async function loadDashboardV5(){try{dashboardV5=await api('/api/dashboard')}catch{dashboardV5={budgetLines:[],actuals:[],assignments:[],people:[]}}}
+async function loadDashboardV5(){try{dashboardV5=await api('/api/dashboard')}catch{dashboardV5={budgetLines:[],monthlyBudgets:[],actuals:[],assignments:[],people:[]}}}
 async function reload(){const r=await api('/api/projects');projects=r.projects||[];await loadDashboardV5();if(chosen&&!fromProject(chosen))chosen=null; if(admin())await loadAdmin();render()}
 async function loadAdmin(){adminData=await api('/api/admin/users')}
 function setError(err){error=String(err?.message||err||'Unknown error');notice='';render()}
@@ -99,6 +99,9 @@ function aiPanelV4(){
 const v5Number=x=>x===null||x===undefined||x===''?null:(Number.isFinite(Number(x))?Number(x):null);
 const v5Money=(amount,currency)=>amount===null?'Not Recorded':fmt(amount)+' '+h(currency||'');
 const v5Rows=id=>(dashboardV5.budgetLines||[]).filter(x=>x.project_code===id&&String(x.period_start).startsWith('2027-'));
+const v7MonthlyBudget=id=>(dashboardV5.monthlyBudgets||[]).filter(x=>x.project_code===id&&String(x.period_start).startsWith('2027-')).sort((a,b)=>String(a.period_start).localeCompare(String(b.period_start)));
+const v7BudgetCurrency=id=>v7MonthlyBudget(id).find(x=>v5Number(x.baseline_amount)!==null&&Number(x.baseline_amount)!==0)?.currency||v7MonthlyBudget(id)[0]?.currency||null;
+const v7Total=(rows,key)=>{const valid=rows.filter(x=>v5Number(x[key])!==null);return valid.length?valid.reduce((n,x)=>n+Number(x[key]),0):null;};
 function v5Health(id,currency){
  const rows=(dashboardV5.actuals||[]).filter(x=>x.project_code===id&&x.currency===currency);
  const revenue=rows.filter(x=>String(x.account_name).trim().toLowerCase()==='revenue');
