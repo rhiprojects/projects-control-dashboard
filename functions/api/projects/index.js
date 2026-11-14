@@ -23,7 +23,7 @@ export function onRequestPost({request,env}){return handler(async()=>{
   planned_start_date:body.startDate||null,planned_finish_date:body.baselineFinish||null,
   forecast_finish_date:body.forecastFinish||null,duration_months:duration,
   location:String(body.location||'').slice(0,300)||null,
-  internal_owner_id:user.profileId};
+  internal_owner_id:null};
  const rows=await rest(env,`ongoing_projects?select=${projectFields}`,{token:user.token,method:'POST',body:payload});
  if(!rows?.length)throw new HttpError(409,'Project could not be saved');
  return json({project:toProject(rows[0])},201);
