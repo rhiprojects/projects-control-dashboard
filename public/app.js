@@ -65,7 +65,7 @@ function milestones(){return heading('Delivery tracking','Milestones & schedules
 function report(){let scoped=reportCode==='all'?projects:projects.filter(p=>p.id===reportCode);return heading('Reporting','Portfolio report','Print or save a PDF from the current authenticated project records.',`<button class="btn primary" data-action="print">${ico('download')} Print / Save PDF</button><button class="btn" data-action="email">Prepare email draft</button>`)+`<section class="card panel no-print" style="margin-bottom:18px"><label class="sup-label" for="report-code">Report scope</label><select id="report-code" class="select-owner" style="display:block;margin-top:8px"><option value="all">${lead()?'Entire accessible portfolio':'All my assigned projects'}</option>${projects.map(p=>`<option value="${h(p.id)}" ${reportCode===p.id?'selected':''}>${h(p.id)} · ${h(p.client)}</option>`).join('')}</select><p class="source-line">Automatic email delivery and PDF attachments are not connected. Preparing an email draft does not send it.</p></section><section class="card panel report-sheet"><div class="eyebrow">Projects Control · Authorized report</div><h2 style="margin:7px 0 7px">${reportCode==='all'?'Project portfolio':h(scoped[0]?.client||'Project')}</h2><p class="source-line">Prepared: ${new Date().toLocaleString('en-GB')} · Issued for ${h(me.displayName)} (${h(roleName[me.role])}) · Currency amounts are not combined across denominations.</p><div class="table-wrap"><table><thead><tr><th>Project</th><th>Client</th><th>Value</th><th>Progress</th><th>Status</th></tr></thead><tbody>${scoped.map(p=>`<tr><td>${h(p.id)}</td><td>${h(p.client)}</td><td>${fmt(p.contractValue)} ${h(p.contractCurrency||'')}</td><td>${p.progress===null?'—':h(p.progress)+'%'}</td><td>${h(p.status||'—')}</td></tr>`).join('')}</tbody></table></div><p class="source-line" style="margin-top:15px">Source: Supabase ongoing-projects register. This is not a certified financial statement. Invoice, collections and monthly actuals are not yet mapped.</p></section>`}
 
 function administration(){if(!admin())return overview();const users=adminData.users;const ownerOf=code=>{const a=adminData.assignments.filter(x=>x.project_code===code);return a.map(x=>users.find(u=>u.user_id===x.user_id)?.display_name||'Unknown user').join(', ')||'Unassigned'};return heading('Administration','Dashboard access','Profiles and assignments from Supabase; role and assignment edits are not activated in this phase.')+`<div class="cards">${kpi('Project records',String(projects.length),'Visible to Super Admin')}${kpi('User profiles',String(users.length),'Login activation pending')}${kpi('Team members',String(users.filter(x=>x.role==='team_member').length),'Confirmed profiles')}${kpi('Unassigned projects',String(projects.filter(p=>ownerOf(p.id)==='Unassigned').length),'No team-level access')}</div><div class="card tablecard"><div class="tablehead"><div><h2 class="paneltitle">Project assignments</h2><p class="panelmeta">Hassan and Super Admin can see all projects. Mohamed sees only 736 and 776 after Auth activation.</p></div></div><div class="table-wrap"><table><thead><tr><th>Code</th><th>Client</th><th>Team member</th></tr></thead><tbody>${projects.map(p=>`<tr><td>${h(p.id)}</td><td>${h(p.client)}</td><td>${h(ownerOf(p.id))}</td></tr>`).join('')}</tbody></table></div></div><div class="read-only-note" style="margin-top:18px">No Super Admin login has been activated yet. Role security is enforced by Supabase RLS, not by a browser role selector.</div>`}
-function render(){ROOT.innerHTML=!me?loginView():layout(creatingV4?createV4():chosen?(edit?editProjectV4():projectViewV4()):page==='overview'?overviewV4():page==='projects'?projectsPage():page==='financials'?financePageV4():page==='milestones'?milestonesPageV4():page==='reports'?reportPageV4():page==='admin'?administration():overviewV4())}
+function render(){ROOT.innerHTML=!me?loginView():layout(creatingV4?createV4():chosen?(edit?editProjectV4():projectViewV4()):page==='overview'?overviewV4():page==='projects'?projectListV4():page==='financials'?financePageV4():page==='milestones'?milestonesPageV4():page==='reports'?reportPageV4():page==='admin'?adminPageV4():overviewV4())}
 function clearToast(){error='';notice=''}
 ROOT.addEventListener('click',async e=>{
  const el=e.target.closest('button');if(!el)return;
@@ -150,5 +150,184 @@ function reportPageV4(){
  const selected=reportCode==='all'?projects:projects.filter(p=>p.id===reportCode);
  return heading('Reports','Project report','Print the selected project records.','<button class="btn" data-action="print">Print / Save PDF</button>')+`<section class="card panel"><select id="report-code"><option value="all">All accessible projects</option>${projects.map(p=>`<option ${reportCode===p.id?'selected':''} value="${h(p.id)}">${h(p.id)} · ${h(p.client)}</option>`).join('')}</select><div class="table-wrap"><table><thead><tr><th>Code</th><th>Client</th><th>Contract</th><th>Progress</th></tr></thead><tbody>${selected.map(p=>`<tr><td>${h(p.id)}</td><td>${h(p.client)}</td><td>${fmt(p.contractValue)} ${h(p.contractCurrency)}</td><td>${p.progress===null?'—':p.progress+'%'}</td></tr>`).join('')}</tbody></table></div></section>`;
 }
-/*V4_EVENT_HANDLERS*/
+
+function projectListV4(){
+ const matching=projects.filter(p=>(p.id+' '+p.client+' '+p.scope).toLowerCase().includes(filter.toLowerCase()));
+ return heading('Projects',lead()?'All projects':'My projects',`${projects.length} accessible projects`,'<button class="btn primary" data-v4="new">+ Create New Project</button>')+
+ `<div class="filters"><div class="searchbox"><input id="project-search" placeholder="Search projects" value="${h(filter)}"></div></div>`+
+ (matching.length?`<div class="projectgrid">${matching.map(projectCard).join('')}</div>`:'<div class="card empty-state">No projects found.</div>');
+}
+
+function adminPageV4(){
+ if(!admin())return overviewV4();
+ return heading('Administration','Project access','Users and project assignments.')+
+ `<div class="card panel"><h2 class="paneltitle">Users</h2><div class="table-wrap"><table><thead><tr><th>Name</th><th>Role</th><th>Active</th></tr></thead><tbody>${adminData.users.map(u=>`<tr><td>${h(u.display_name)}</td><td>${h(roleName[u.role]||u.role)}</td><td>${u.active?'Yes':'No'}</td></tr>`).join('')}</tbody></table></div></div>`;
+}
+
+async function loadDetailsV4(){
+ detailsV4=null;
+ if(!chosen)return;
+ try{detailsV4=await api('/api/project-data?code='+encodeURIComponent(chosen))}
+ catch(err){error=err.message}
+}
+
+async function uploadV4(pcode,type,file){
+ if(!file)return null;
+ const form=new FormData();form.set('projectCode',pcode);form.set('documentType',type);form.set('file',file);
+ const response=await fetch('/api/documents',{method:'POST',headers:{authorization:'Bearer '+auth.access_token},body:form});
+ const data=await response.json().catch(()=>({}));
+ if(!response.ok)throw Error(data.error||'Upload failed');return data;
+}
+
+async function extractV4(file){
+ const form=new FormData();form.set('file',file);
+ const response=await fetch('/api/extract',{method:'POST',headers:{authorization:'Bearer '+auth.access_token},body:form});
+ const data=await response.json().catch(()=>({}));
+ if(!response.ok)throw Error(data.error||'Could not extract project data');
+ return data.suggested||{};
+}
+
+function approvedChangesV4(s){
+ const result={};for(const k of ['client','scope','contractValue','location','progress','startDate','baselineFinish','durationMonths'])if(s[k]!==undefined&&s[k]!==null)result[k]=s[k];return result;
+}
+ROOT.addEventListener('click',async event=>{
+ const button=event.target.closest('button[data-v4]');if(!button)return;
+ const action=button.dataset.v4;
+ if(action==='new'){creatingV4=true;chosen=null;edit=false;suggestionsV4={};render();return;}
+ if(action==='cancel-create'){creatingV4=false;render();return;}
+ if(action==='edit'){edit=true;render();return;}
+ if(action==='cancel-edit'){edit=false;render();return;}
+ if(action==='back'){chosen=null;detailsV4=null;edit=false;page='projects';render();return;}
+ if(action==='prompt'){const input=document.querySelector('#ai-v4 input');if(input){input.value=button.dataset.question||'';input.focus();}return;}
+ if(action==='clear'){chatV4=[];render();return;}
+ if(action==='file'||action==='pdf'){
+  let tab=action==='pdf'?window.open('about:blank','_blank'):null;
+  try{
+   const target='/api/documents/'+encodeURIComponent(button.dataset.doc)+(action==='pdf'?'?view=pdf':'');
+   const res=await fetch(target,{headers:{Authorization:'Bearer '+auth.access_token}});
+   if(!res.ok)throw new Error('File unavailable');
+   const blob=await res.blob(),url=URL.createObjectURL(blob);
+   if(action==='pdf'){if(tab)tab.location.href=url;else window.open(url,'_blank');}
+   else{const link=document.createElement('a');link.href=url;link.download='Project document';document.body.appendChild(link);link.click();link.remove();}
+   setTimeout(()=>URL.revokeObjectURL(url),120000);
+  }catch(err){if(tab)tab.close();setError(err)}
+  return;
+ }
+ if(action==='save-money'){
+  const kind=button.dataset.kind,entry=button.dataset.entry,
+    input=document.querySelector('[data-money="'+kind+'-'+entry+'"]');
+  if(!input)return;const amount=input.value===''?null:Number(input.value);
+  if(amount!==null&&!Number.isFinite(amount)){setError('Invalid amount');return;}
+  button.disabled=true;
+  try{await api('/api/finance',{method:'PUT',body:{projectCode:chosen,kind,
+   period:kind==='monthly'?entry:undefined,id:kind==='monthly'?undefined:entry,
+   updatedAt:button.dataset.updated,amount}});
+   await loadDetailsV4();showNotice('Budget updated.');
+  }catch(err){setError(err)}
+  finally{button.disabled=false}
+  return;
+ }
+ if(action==='apply-precreate'){
+  const form=document.getElementById('create-v4');
+  for(const [key,value] of Object.entries(suggestionsV4)){
+   const field=form?.elements.namedItem(key);if(field&&value!==null&&value!==undefined)field.value=String(value);
+  }
+  const preview=document.getElementById('numbers-proposal-v4');
+  if(preview)preview.innerHTML='<p>Review the populated fields, then create the project.</p>';
+  return;
+ }
+ if(action==='confirm-import'&&pendingV4){
+  const changes=approvedChangesV4(pendingV4.proposed||{});
+  try{
+   if(Object.keys(changes).length){
+    const p=fromProject(chosen);
+    const result=await api('/api/projects/'+encodeURIComponent(chosen),{
+      method:'PUT',body:{lastEdited:p.lastEdited,changes}});
+    const i=projects.findIndex(x=>x.id===chosen);if(i>=0)projects[i]=result.project;
+   }
+   await api('/api/documents',{method:'PUT',body:{projectCode:chosen,documentId:pendingV4.document.id}});
+   pendingV4=null;await loadDetailsV4();showNotice('Project numbers confirmed.');
+  }catch(err){setError(err)}
+ }
+});
+ROOT.addEventListener('change',async event=>{
+ if(event.target?.id!=='numbers-precreate-v4')return;
+ const file=event.target.files?.[0],box=document.getElementById('numbers-proposal-v4');
+ if(!file||!box)return;
+ box.hidden=false;box.textContent='Reading project numbers...';
+ try{
+  suggestionsV4=await extractV4(file);
+  const arr=Object.entries(suggestionsV4);
+  box.innerHTML='<h3>Proposed fields</h3>'+
+    (arr.length?'<div class="v4-suggest-grid">'+arr.map(([k,v])=>
+      '<div><small>'+h(k)+'</small><strong>'+h(String(v))+'</strong></div>').join('')+
+      '</div><button type="button" class="btn primary" data-v4="apply-precreate">Use these values</button>':
+      '<p>No matching fields identified. Complete the project form manually.</p>');
+ }catch(err){box.textContent=err.message;}
+});
+ROOT.addEventListener('submit',async event=>{
+ const form=event.target,id=form.id;
+ if(!['ai-v4','create-v4','edit-v4','add-period-v4','contract-v4','numbers-v4'].includes(id))return;
+ event.preventDefault();
+ if(id==='ai-v4'){
+  const question=String(new FormData(form).get('question')||'').trim();
+  if(!question||chatBusyV4)return;
+  const history=chatV4.slice(-6);chatV4.push({role:'user',content:question});
+  chatBusyV4=true;render();
+  try{const data=await api('/api/assistant',{method:'POST',body:{question,history}});
+   chatV4.push({role:'assistant',content:data.answer});}
+  catch{chatV4.push({role:'assistant',content:'I could not answer that question right now. Please try again.'});}
+  finally{chatBusyV4=false;render();}
+  return;
+ }
+ if(id==='create-v4'){
+  const f=new FormData(form),str=k=>String(f.get(k)||'').trim();
+  const body={projectCode:str('projectCode'),client:str('client'),scope:str('scope'),currency:str('currency'),
+    contractValue:str('contractValue')===''?0:Number(str('contractValue')),location:str('location'),
+    startDate:str('startDate')||null,baselineFinish:str('baselineFinish')||null,
+    forecastFinish:str('forecastFinish')||null,durationMonths:str('durationMonths')===''?null:Number(str('durationMonths'))};
+  const contract=form.elements.namedItem('contract')?.files?.[0],numbers=form.elements.namedItem('numbers')?.files?.[0];
+  try{
+   await api('/api/projects',{method:'POST',body});const failures=[];
+   if(contract)try{await uploadV4(body.projectCode,'contract',contract)}catch(err){failures.push('Contract: '+err.message);}
+   if(numbers)try{
+    const r=await uploadV4(body.projectCode,'project_numbers',numbers);
+    if(r.document?.id)await api('/api/documents',{method:'PUT',body:{projectCode:body.projectCode,documentId:r.document.id}});
+   }catch(err){failures.push('Project Numbers: '+err.message);}
+   creatingV4=false;await reload();chosen=body.projectCode;page='projects';await loadDetailsV4();
+   showNotice(failures.length?'Project created. Upload issue: '+failures.join('; '):'Project created.');
+  }catch(err){setError(err)}
+  return;
+ }
+ if(id==='edit-v4'){
+  const f=new FormData(form),str=k=>String(f.get(k)||'').trim();
+  const current=fromProject(chosen);
+  const changes={client:str('client'),scope:str('scope'),contractValue:str('contractValue')===''?null:Number(str('contractValue')),
+   progress:str('progress')===''?null:Number(str('progress')),location:str('location')||null,
+   startDate:str('startDate')||null,baselineFinish:str('baselineFinish')||null,
+   forecastFinish:str('forecastFinish')||null,durationMonths:str('durationMonths')===''?null:Number(str('durationMonths')),status:str('status')};
+  try{const r=await api('/api/projects/'+encodeURIComponent(chosen),{method:'PUT',body:{lastEdited:current.lastEdited,changes}});
+   const i=projects.findIndex(p=>p.id===chosen);if(i>=0)projects[i]=r.project;
+   edit=false;await loadDetailsV4();showNotice('Project updated.');
+  }catch(err){setError(err)}
+  return;
+ }
+ if(id==='add-period-v4'){
+  const period=String(new FormData(form).get('period')||'');
+  if(!/^\d{4}-\d{2}$/.test(period)){setError('Select a month');return;}
+  try{await api('/api/finance',{method:'POST',body:{projectCode:chosen,period:period+'-01'}});
+   await loadDetailsV4();showNotice('Month added.');
+  }catch(err){setError(err)}
+  return;
+ }
+ if(id==='contract-v4'||id==='numbers-v4'){
+  const type=id==='contract-v4'?'contract':'project_numbers';
+  const file=form.elements.namedItem('file')?.files?.[0];if(!file)return;
+  try{const uploaded=await uploadV4(chosen,type,file);
+   pendingV4=type==='project_numbers'?uploaded:null;await loadDetailsV4();
+   showNotice(type==='contract'?'Contract uploaded.':'Project numbers uploaded. Review and confirm extracted values.');
+  }catch(err){setError(err)}
+ }
+});
+
 init();
