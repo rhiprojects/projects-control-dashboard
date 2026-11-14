@@ -176,7 +176,7 @@ export function onRequestPost({request,env}){return handler(async()=>{
    ...cleanHistory(body.history),
    {role:'user',content:question}
   ],max_tokens:850});
-  const answer=String(reply?.response||reply?.result?.response||'').trim();
+  const answer=String(reply?.response||reply?.result?.response||reply?.choices?.[0]?.message?.content||reply?.result?.choices?.[0]?.message?.content||'').trim();
   if(answer)return json({answer:answer.slice(0,5800)});
  }catch(err){/* No internal errors are displayed in the portal. */}
  const fallback=snapshot.slice(0,3).map(({project:p})=>p.code+' — '+p.name+': client '+say(p.client)+'; planned start '+emptyIfMissing(p.planned_start)+'; planned finish '+emptyIfMissing(p.planned_finish)+'; approved 2027 budget '+money(p.budget_2027_approved,p.budget_2027_currency)).join('\n');
