@@ -20,7 +20,7 @@ export async function onRequestPost({request,env}){return handler(async()=>{
   const p=period(b.period);
   const old=await rest(env,`project_monthly_budgets?project_code=eq.${encodeURIComponent(proj)}&period_start=eq.${p}&select=project_code&limit=1`,{token:user.token});
   if(old?.length)throw new HttpError(409,'This month already exists');
-  rows=await rest(env,`project_monthly_budgets?select=project_code,period_start,currency,baseline_amount,current_amount,updated_at`,{token:user.token,method:'POST',body:{project_code:proj,period_start:p,currency:['EGP','USD','EUR','Other'].includes(b.currency)?b.currency:'EGP',current_amount:amount(b.amount)}});
+  rows=await rest(env,`project_monthly_budgets?select=project_code,period_start,currency,baseline_amount,current_amount,updated_at`,{token:user.token,method:'POST',body:{project_code:proj,period_start:p,currency:['EGP','USD','EUR','Other'].includes(b.currency)?b.currency:'EGP',current_amount:b.amount===undefined?null:amount(b.amount)}});
  }else if(action==='update_budget'){
   const p=period(b.period),v=amount(b.amount);
   const existing=await rest(env,`project_monthly_budgets?project_code=eq.${encodeURIComponent(proj)}&period_start=eq.${p}&select=current_amount,updated_at&limit=1`,{token:user.token});
