@@ -41,7 +41,7 @@ async function login(email,password){
  chatV4=[];detailsV4=null;pendingV4=null;auth=v;saveAuth();try{await ready()}catch(e){logout(false);throw e}
 }
 async function ready(){const s=await api('/api/session');me=s;const r=await api('/api/projects');projects=r.projects||[];await loadDashboardV5();if(admin())await loadAdmin();}
-async function loadDashboardV5(){dashboardV5=await api('/api/dashboard');}
+async function loadDashboardV5(){try{dashboardV5=await api('/api/dashboard')}catch{dashboardV5={budgetLines:[],actuals:[],assignments:[],people:[]}}}
 async function reload(){const r=await api('/api/projects');projects=r.projects||[];await loadDashboardV5();if(chosen&&!fromProject(chosen))chosen=null; if(admin())await loadAdmin();render()}
 async function loadAdmin(){adminData=await api('/api/admin/users')}
 function setError(err){error=String(err?.message||err||'Unknown error');notice='';render()}
