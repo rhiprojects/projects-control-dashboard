@@ -56,7 +56,7 @@ export function checkedChanges(changes){
   else if(k==='durationMonths'){if(v!==null&&(!Number.isInteger(v)||v<1||v>1200))throw new HttpError(400,'Invalid duration');out.duration_months=v;}
   else if(k==='internalOwnerId'){if(v!==null&&(typeof v!=='string'||!/^[-a-f0-9]{36}$/i.test(v)))throw new HttpError(400,'Invalid owner');out.internal_owner_id=v;}
   else if(['startDate','baselineFinish','forecastFinish'].includes(k)){
-   if(v!==null&&(typeof v!=='string'||!/^\\d{4}-\\d{2}-\\d{2}$/.test(v)||!Number.isFinite(Date.parse(v))))throw new HttpError(400,'Invalid date');
+   if(v!==null&&(typeof v!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(v)||!Number.isFinite(Date.parse(v))))throw new HttpError(400,'Invalid date');
    out[mapping[k]]=v;
   }else{if(v!==null&&(typeof v!=='string'||v.length>2000))throw new HttpError(400,'Invalid text field');out[mapping[k]]=v;}
  }
