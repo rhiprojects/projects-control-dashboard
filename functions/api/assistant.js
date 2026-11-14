@@ -61,6 +61,7 @@ function directAnswer(question,view,allProjects,people,assignments){
  if(kind.finance&&/actual|recorded|profit|revenue|margin|p&l/.test(q)){
    const entries=view.flatMap(x=>x.actuals.map(r=>({code:x.project.code,...r})));
    if(!entries.length)return 'Recorded financial actuals for the requested project or projects are not currently present in the portal.';
+   return 'Recorded financial entries available in the portal (these are entries, not a computed profit margin):\\n'+entries.slice(0,50).map(r=>r.code+' | '+r.period_start+' | '+r.account_name+': '+money(r.amount,r.currency)).join('\\n')+(entries.length>50?'\\nAdditional records are available in the portal.':'');
  }
  if(kind.finance&&!group&&/budget|cost|cogs|financ|project.*amount/.test(q)&&!kind.team){
    return '2027 projected project budgets (approved / working, by project and budget currency):\\n'+view.map(({project:p})=>p.code+' — '+p.name+': '+money(p.budget_2027_approved,p.budget_2027_currency)+' / '+money(p.budget_2027_working,p.budget_2027_currency)).join('\\n')+'. These are budgets, not actual P&L.';
@@ -100,6 +101,13 @@ function directAnswer(question,view,allProjects,people,assignments){
    return 'Project '+p.code+': planned start '+emptyIfMissing(p.planned_start)+'; planned finish '+emptyIfMissing(p.planned_finish)+'; forecast finish '+emptyIfMissing(p.forecast_finish)+'; physical progress '+(num(p.physical_progress_percent)===null?'not recorded':p.physical_progress_percent+'%')+'.';
   }
   if(kind.finance&&!kind.contract){
+   if(/category|breakdown|personnel|manpower|salary|engineering|sg&a|hospitality|operating cost/.test(q)){
+    const matching=group.categories.filter(x=>!(/manpower/.test(q))||/manpower/i.test(x.category));
+    if(!matching.length)return 'Detailed cost-category information for this question is not currently present in the portal.';
+    const consolidated=new Map();
+    for(const x of matching){const key=x.category+' | '+x.currency;const a=consolidated.get(key)||{category:x.category,currency:x.currency,amount:0};a.amount+=x.approved;consolidated.set(key,a);}
+    return 'Project '+p.code+' — 2027 reference cost categories (the reference breakdown may include months outside the final monthly project budget):\\n'+[...consolidated.values()].map(x=>x.category+': '+money(x.amount,x.currency)).join('\\n');
+   }
    if(/month|january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec/.test(q)){
     return 'Project '+p.code+' — 2027 monthly approved and working budgets ('+say(p.budget_2027_currency)+'):\n'+(p.budget_2027_months.length?p.budget_2027_months.map(([period,a,w])=>period+': approved '+money(a,p.budget_2027_currency)+'; working '+money(w,p.budget_2027_currency)).join('\n'):absent);
    }
@@ -109,7 +117,7 @@ function directAnswer(question,view,allProjects,people,assignments){
   if(kind.contract&&!kind.clause){
    return 'Project '+p.code+' contract/register information: client '+say(p.client)+'; scope '+emptyIfMissing(p.scope)+'; contract value '+money(p.contract_value,p.contract_currency)+'; planned start '+emptyIfMissing(p.planned_start)+'; planned finish '+emptyIfMissing(p.planned_finish)+'; contract documents '+(contracts.length?contracts.map(x=>x.name).join(', '):'not currently present in the portal')+'.';
   }
-  if(/(?:tell me about|overview|summary|details|information about)\b/.test(q))
+  if(/(?:tell me about|overview|summary|details|information about|project status|current status)\b/.test(q))
    return 'Project '+p.code+' — '+p.name+'. Client: '+say(p.client)+'. Scope: '+emptyIfMissing(p.scope)+'. Location: '+emptyIfMissing(p.location)+'. Status: '+say(p.status)+'. Planned start: '+emptyIfMissing(p.planned_start)+'. Planned finish: '+emptyIfMissing(p.planned_finish)+'. Internal owner: '+who+'. 2027 approved budget: '+money(p.budget_2027_approved,p.budget_2027_currency)+'.';
  }
  return null;
