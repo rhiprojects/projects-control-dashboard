@@ -1,0 +1,14 @@
+{
+  "name": "projects-control-supabase",
+  "version": "3.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Private Cloudflare Pages + Supabase RLS project dashboard, not deployed",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "dev": "wrangler pages dev public"
+  },
+  "devDependencies": {
+    "wrangler": "4.51.0"
+  }
+}
