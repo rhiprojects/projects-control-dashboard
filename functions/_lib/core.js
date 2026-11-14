@@ -25,17 +25,40 @@ export async function identity(request,env){
 }
 export const adminOnly=session=>{if(session.role!=='super_admin')throw new HttpError(403,'Super Admin only')};
 export function code(value){if(typeof value!=='string'||!/^\d{2,5}(?:\.\d{1,3})?$/.test(value))throw new HttpError(400,'Invalid project code');return value}
-export function toProject(r){return {id:r.project_code,name:`${r.project_code} — ${r.client} — ${r.scope}`,client:r.client,scope:r.scope,contractCurrency:r.currency,contractValue:r.contract_amount===null?null:Number(r.contract_amount),status:r.status,progress:r.physical_progress_pct===null?null:Number(r.physical_progress_pct),notes:r.source_notes??'',sourceTotalProgress:r.source_total_progress===null?null:Number(r.source_total_progress),sourceRemaining:r.source_remaining_contract===null?null:Number(r.source_remaining_contract),lastEdited:r.last_updated,startDate:null,baselineFinish:null,forecastFinish:null,variations:null,costToComplete:null}};
-export const projectFields='project_code,client,scope,currency,contract_amount,status,physical_progress_pct,source_notes,source_total_progress,source_remaining_contract,last_updated';
+export function toProject(r){return {
+ id:r.project_code, name:r.project_code+' — '+r.client+' — '+r.scope,client:r.client,scope:r.scope,
+ contractCurrency:r.currency,contractValue:r.contract_amount===null?null:Number(r.contract_amount),
+ status:r.status,progress:r.physical_progress_pct===null?null:Number(r.physical_progress_pct),notes:r.source_notes??'',
+ sourceTotalProgress:r.source_total_progress===null?null:Number(r.source_total_progress),
+ sourceRemaining:r.source_remaining_contract===null?null:Number(r.source_remaining_contract),
+ lastEdited:r.last_updated,startDate:r.planned_start_date||null,baselineFinish:r.planned_finish_date||null,
+ forecastFinish:r.forecast_finish_date||null,durationMonths:r.duration_months??null,
+ internalOwnerId:r.internal_owner_id||null,createdBy:r.created_by||null,location:r.location||null
+}};
+export const projectFields='project_code,client,scope,currency,contract_amount,status,physical_progress_pct,source_notes,source_total_progress,source_remaining_contract,last_updated,planned_start_date,planned_finish_date,forecast_finish_date,duration_months,internal_owner_id,created_by,location';
 export async function getProject(env,session,pcode){
  const rows=await rest(env,`ongoing_projects?project_code=eq.${encodeURIComponent(code(pcode))}&select=${projectFields}&limit=1`,{token:session.token});
  if(!rows?.length)throw new HttpError(404,'Project not available to your account');return rows[0];
 }
 const number=(v,k,max)=>{if(v===null)return null;if(typeof v!=='number'||!Number.isFinite(v)||v<0||v>max)throw new HttpError(400,`Invalid ${k}`);return v};
-export function checkedChanges(changes){if(!changes||typeof changes!=='object'||Array.isArray(changes))throw new HttpError(400,'Invalid changes');
- const keys=Object.keys(changes);if(!keys.length||keys.length>3||keys.some(k=>!['contractValue','progress','status'].includes(k)))throw new HttpError(400,'Field not editable in this phase');
- const out={};for(const key of keys){const v=changes[key];if(key==='contractValue')out.contract_amount=number(v,key,1e15);
- else if(key==='progress')out.physical_progress_pct=number(v,key,100);
- else if(key==='status'){if(!['Active','On Hold','Completed','Cancelled'].includes(v))throw new HttpError(400,'Invalid status');out.status=v}}
+export function checkedChanges(changes){
+ if(!changes||typeof changes!=='object'||Array.isArray(changes))throw new HttpError(400,'Invalid changes');
+ const mapping={contractValue:'contract_amount',progress:'physical_progress_pct',status:'status',
+   client:'client',scope:'scope',location:'location',startDate:'planned_start_date',
+   baselineFinish:'planned_finish_date',forecastFinish:'forecast_finish_date',
+   durationMonths:'duration_months',internalOwnerId:'internal_owner_id'};
+ const entries=Object.entries(changes);
+ if(!entries.length||entries.length>Object.keys(mapping).length||entries.some(([k])=>!mapping[k]))throw new HttpError(400,'Invalid project fields');
+ const out={};
+ for(const [k,v] of entries){
+  if(k==='contractValue'||k==='progress')out[mapping[k]]=number(v,k,k==='progress'?100:1e15);
+  else if(k==='status'){if(!['Active','On Hold','Completed','Cancelled'].includes(v))throw new HttpError(400,'Invalid status');out.status=v;}
+  else if(k==='durationMonths'){if(v!==null&&(!Number.isInteger(v)||v<1||v>1200))throw new HttpError(400,'Invalid duration');out.duration_months=v;}
+  else if(k==='internalOwnerId'){if(v!==null&&(typeof v!=='string'||!/^[-a-f0-9]{36}$/i.test(v)))throw new HttpError(400,'Invalid owner');out.internal_owner_id=v;}
+  else if(['startDate','baselineFinish','forecastFinish'].includes(k)){
+   if(v!==null&&(typeof v!=='string'||!/^\\d{4}-\\d{2}-\\d{2}$/.test(v)||!Number.isFinite(Date.parse(v))))throw new HttpError(400,'Invalid date');
+   out[mapping[k]]=v;
+  }else{if(v!==null&&(typeof v!=='string'||v.length>2000))throw new HttpError(400,'Invalid text field');out[mapping[k]]=v;}
+ }
  return out;
 }
