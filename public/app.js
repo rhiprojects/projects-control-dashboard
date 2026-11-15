@@ -23,6 +23,7 @@ const date=d=>{
 const roleName={super_admin:'Super Admin',head_of_projects:'Head of Projects',team_member:'Team Member'};
 const iconPaths={"grid":"<rect x=\"3\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"3\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/>","projects":"<rect x=\"3\" y=\"5\" width=\"18\" height=\"15\" rx=\"2\"/><path d=\"M3 9h18M7 3v4\"/>","chart":"<path d=\"M4 20V11m6 9V4m6 16v-8m5 8H2\"/>","calendar":"<rect x=\"3\" y=\"5\" width=\"18\" height=\"16\" rx=\"2\"/><path d=\"M7 3v4m10-4v4M3 10h18\"/>","reports":"<path d=\"M6 3h10l4 4v14H6zM16 3v5h4M9 12h8M9 16h8\"/>","admin":"<circle cx=\"12\" cy=\"12\" r=\"4\"/><path d=\"M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2m0-14-2 2M7 17l-2 2\"/>","assistant":"<path d=\"M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z\"/>","contract":"<path d=\"M6 3h10l4 4v14H6zM16 3v5h4M9 12h8M9 16h6\"/>","money":"<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M15 8c-1-2-6-2-6 1 0 3 6 1 6 5 0 3-5 4-7 1M12 5v14\"/>","progress":"<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v6m0 4h.01\"/>"};
 iconPaths.network='<path d="M12 3l9 5v8l-9 5-9-5V8l9-5Z M3 8l9 5 9-5 M12 13v8"/><circle cx="12" cy="3" r="1.8" fill="currentColor" stroke="none"/><circle cx="3" cy="8" r="1.8" fill="currentColor" stroke="none"/><circle cx="21" cy="8" r="1.8" fill="currentColor" stroke="none"/><circle cx="12" cy="21" r="1.8" fill="currentColor" stroke="none"/>';
+iconPaths.team='<circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2H3zM17 5a3 3 0 0 1 0 6M18 14a5 5 0 0 1 4 5v1h-4"/>';
 const ico=name=>'<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+(iconPaths[name]||iconPaths.grid)+'</svg>';
 let dashboardV5=null,dashboardError=false,dashboardRequest=0;
 let detailsError=false,detailsRequest=0,mobileNavOpen=false,creatingRequest=false;
@@ -93,9 +94,9 @@ const financialSections=[
  ['project-cost-budget','Detailed Budget (COGS)'],
  ['project-pnl-actuals','P&L (Actuals)']
 ];
-const nav=[['overview','grid','Overview'],['projects','projects','Projects'],['financials','chart','Financials'],['milestones','calendar','Milestones'],['reports','reports','Reports'],['assistant','assistant','AI Assistant'],['admin','admin','Administration']];
+const nav=[['overview','grid','Overview'],['projects','projects','Projects'],['financials','chart','Financials'],['team','team','Team Workload'],['milestones','calendar','Milestones'],['reports','reports','Reports'],['assistant','assistant','AI Assistant'],['admin','admin','Administration']];
 function navigationMarkup(){
- return nav.filter(x=>x[0]!=='admin'||admin()).map(([key,icon,title])=>{
+ return nav.filter(x=>(x[0]!=='admin'||admin())&&(x[0]!=='team'||lead())).map(([key,icon,title])=>{
   const current=page===key;
   const item=`<button class="${current?'active':''}" data-page="${key}"${current?' aria-current="page"':''}>
    <span class="nav-icon">${ico(icon)}</span>${title}
@@ -178,7 +179,7 @@ function render(){
  if(window.echarts){
   ROOT.querySelectorAll('.v7-chart').forEach(el=>window.echarts.getInstanceByDom(el)?.dispose());
  }
- ROOT.innerHTML=!me?loginView():layout(creatingV4?createV4():chosen?(edit?editProjectV4():projectViewV4()):page==='overview'?overviewV4():page==='projects'?projectListV4():page==='financials'?financePageV4():page==='milestones'?milestonesPageV4():page==='reports'?reportPageV4():page==='admin'?adminPageV4():overviewV4());
+ ROOT.innerHTML=!me?loginView():layout(creatingV4?createV4():chosen?(edit?editProjectV4():projectViewV4()):page==='overview'?overviewV4():page==='projects'?projectListV4():page==='financials'?financePageV4():page==='team'&&lead()?teamPageV12():page==='milestones'?milestonesPageV4():page==='reports'?reportPageV4():page==='admin'?adminPageV4():overviewV4());
  const replacement=draft&&document.getElementById(draft.id);
  if(replacement){
   replacement.replaceWith(draft);
@@ -461,6 +462,18 @@ async function v7RenderCharts(){
   try{
    const data=JSON.parse(el.dataset.chart);
    const chart=echarts.init(el,null,{renderer:'svg'});
+   if(data.kind==='donut'){
+    chart.setOption({animation:false,color:['#163F70','#2879BF','#62AAF0','#0F9FBA','#76B8D9','#8A9DBB','#425B81','#B9CFDF'],
+     tooltip:{trigger:'item',formatter:p=>p.name+': '+Number(p.value).toLocaleString('en-US',{maximumFractionDigits:2})+' '+data.currency+' ('+p.percent+'%)'},
+     series:[{type:'pie',radius:['56%','82%'],center:['50%','50%'],
+      data:data.labels.map((name,i)=>({name,value:data.values[i]})),label:{show:false},labelLine:{show:false}}]
+    });
+    if(typeof ResizeObserver==='function'){
+     const observer=new ResizeObserver(()=>{if(el.isConnected)chart.resize();else{observer.disconnect();chart.dispose()}});
+     observer.observe(el);
+    }
+    return;
+   }
    const horizontal=data.kind==='horizontal';
    const totalProjects=Math.max(1,Number(data.maxProjects)||0);
    const colors=['#1F5E96','#62A2D5','#A0BED6'];
@@ -582,9 +595,72 @@ function v5Portfolio(){
  }).join('')+'</div>'+(!active().length?'<p>No active project records available.</p>':'')+'</section>';
 }
 
+function dashboardEntriesV12(){
+ return active().map(p=>{
+  const currency=v7BudgetCurrency(p.id);
+  const periods=currency?portalScheduledMonths(p,v7MonthlyBudget(p.id).filter(x=>x.currency===currency)):[];
+  return {p,currency,approved:v7Total(periods,'baseline_amount'),working:v7Total(periods,'current_amount'),
+   budgetMonths:new Set(periods.filter(x=>v5Number(x.baseline_amount)!==null&&Number(x.baseline_amount)!==0).map(x=>String(x.period_start).slice(0,7)))};
+ });
+}
+
+function dashboardTimelineV12(entries){
+ const names=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+ const lines=entries.map(x=>{
+  const label=x.p.id+' · '+(x.p.displayName||x.p.client);
+  const months=names.map((name,i)=>{
+   const period='2027-'+String(i+1).padStart(2,'0');
+   return '<span class="dashboard-timeline-cell'+(x.budgetMonths.has(period)?' is-funded':'')+'" title="'+h(name+' 2027: '+(x.budgetMonths.has(period)?'approved monthly budget recorded':'no nonzero approved budget recorded'))+'"></span>';
+  }).join('');
+  return '<div class="dashboard-timeline-line"><span class="dashboard-timeline-project" title="'+h(label)+'">'+h(label)+'</span>'+
+   '<div class="dashboard-timeline-cells" role="img" aria-label="'+h(label+': '+([...x.budgetMonths].sort().join(', ')||'no recorded budget months'))+'">'+months+'</div>'+
+   '<span class="dashboard-timeline-end">'+h(portalProjectEndText(x.p))+'</span></div>';
+ }).join('');
+ return '<section class="card panel dashboard-timeline"><div class="dashboard-timeline-header"><h2 class="paneltitle">2027 Project Timeline</h2><span>Blue indicates months with recorded approved budgets</span></div>'+
+ '<div class="dashboard-timeline-scroll"><div class="dashboard-timeline-grid"><div class="dashboard-timeline-head"><span>Project</span><div class="dashboard-timeline-months">'+names.map(x=>'<span>'+x+'</span>').join('')+'</div><span>Project end</span></div>'+lines+'</div></div></section>';
+}
+
+function dashboardFinancialV12(){
+ const entries=dashboardEntriesV12();
+ const currencies=[...new Set(entries.map(x=>x.currency).filter(Boolean))];
+ const colors=['#163F70','#2879BF','#62AAF0','#0F9FBA','#76B8D9','#8A9DBB','#425B81','#B9CFDF'];
+ const budgetCharts=currencies.map(currency=>{
+  const rows=entries.filter(x=>x.currency===currency&&x.approved!==null);
+  const positive=rows.filter(x=>x.approved>0);
+  const total=positive.reduce((sum,x)=>sum+x.approved,0);
+  const ring=total>0?'<div class="dashboard-donut-wrapper">'+
+   '<div class="v7-chart dashboard-donut" role="img" aria-label="'+h('2027 approved budget distribution in '+currency)+'" data-chart="'+h(JSON.stringify({kind:'donut',currency,labels:positive.map(x=>x.p.id),values:positive.map(x=>x.approved)}))+'"></div>'+
+   '<div class="dashboard-donut-center" aria-hidden="true"><strong>'+h(fmt(total))+'</strong><small>'+h(currency)+' total</small></div></div>':
+   '<p>No positive approved amounts recorded for a distribution chart.</p>';
+  const legend=rows.map((x,i)=>'<li><span class="dashboard-legend-swatch" style="background:'+colors[i%colors.length]+'"></span>'+
+   '<span class="dashboard-legend-project">'+h(x.p.id+' · '+(x.p.displayName||x.p.client))+'</span>'+
+   '<strong>'+h(moneyLabel(x.approved,currency))+'</strong>'+
+   '<small>'+(total>0?h((x.approved/total*100).toFixed(1))+'%':'—')+'</small></li>').join('');
+  const bar=rows.length?v7Chart('Approved vs. Working Budget · '+currency,'bar',rows.map(x=>x.p.id),[
+   {name:'Approved Budget',values:rows.map(x=>x.approved)},
+   {name:'Working Budget',values:rows.map(x=>x.working)}
+  ],currency):'<p>No recorded project budgets to compare.</p>';
+  return '<div class="dashboard-budget-group"><section class="card panel dashboard-budget-distribution"><h3>Budget Distribution by Project · '+h(currency)+'</h3>'+
+   '<div class="dashboard-budget-distribution-body">'+ring+'<ul class="dashboard-budget-legend">'+legend+'</ul></div></section>'+
+   '<div class="dashboard-budget-comparison">'+bar+'</div></div>';
+ }).join('');
+ const ends='<section class="card panel dashboard-project-ends"><h3>Project End Dates</h3><ul>'+
+  entries.map(x=>'<li><span>'+h(x.p.id+' · '+(x.p.displayName||x.p.client))+'</span><strong>'+h(portalProjectEndText(x.p))+'</strong></li>').join('')+'</ul></section>';
+ return '<section class="dashboard-financial-overview"><div class="dashboard-financial-heading"><h2>2027 Project Financial Overview</h2><button class="btn small" data-page="financials">Detailed financial tables</button></div>'+
+ '<div class="dashboard-financial-grid"><div class="dashboard-budget-groups">'+
+ (budgetCharts||'<section class="card panel"><p>No 2027 project budget entries available.</p></section>')+
+ '</div>'+ends+'</div>'+dashboardTimelineV12(entries)+'</section>';
+}
+
+function teamPageV12(){
+ if(!lead())return overviewV4();
+ return heading('Team','Team Workload','Assignments for accessible projects.')+
+ (dashboardV5?v5TeamPanel():dataStatus('Team workload',dashboardError,'retry-dashboard'));
+}
+
 function overviewV4(){
  return `<div class="pageheader overview-header"><h1 class="pagetitle">${h(cairoGreeting(me.displayName))}</h1><button class="btn" data-action="reload">↻ Refresh</button></div>`+
- `<div class="cards">${kpi('Active Projects',String(active().length),'Active Projects','','projects')}${kpi('Original Contract Value · EGP',contractTotalLabel('EGP'),'Active projects · contractual amounts','blue','contract')}${kpi('Original Contract Value · USD',contractTotalLabel('USD'),'Active projects · contractual amounts','','money')}${kpi('Progress Not Recorded',String(missing('progress')),'Active Projects','amber','progress')}</div><div class="grid-two v4-grid"><section class="card panel"><div class="panelhead"><h2 class="paneltitle">Your Active Projects</h2><button class="btn small" data-page="projects">View all</button></div><ul class="list-naked">${active().map(p=>`<li><div><button class="plink" data-project="${h(p.id)}">${h(p.id)} · ${h(p.displayName||p.client)}</button><span class="subline">${h(p.status)} · ${h(p.contractCurrency)} · Project end: ${h(portalProjectEndText(p))}</span></div>${dashboardV5?v5Arrow(p):''}</li>`).join('')}</ul></section>${aiPanelV4()}</div>${dashboardV5?v5TeamPanel()+v5Portfolio():dataStatus('Dashboard data',dashboardError,'retry-dashboard')}`;
+ `<div class="cards">${kpi('Active Projects',String(active().length),'Active Projects','','projects')}${kpi('Original Contract Value · EGP',contractTotalLabel('EGP'),'Active projects · contractual amounts','blue','contract')}${kpi('Original Contract Value · USD',contractTotalLabel('USD'),'Active projects · contractual amounts','','money')}${kpi('Progress Not Recorded',String(missing('progress')),'Active Projects','amber','progress')}</div>${dashboardV5?dashboardFinancialV12():dataStatus("Dashboard data",dashboardError,"retry-dashboard")}<div class="grid-two v4-grid"><section class="card panel"><div class="panelhead"><h2 class="paneltitle">Your Active Projects</h2><button class="btn small" data-page="projects">View all</button></div><ul class="list-naked">${active().map(p=>`<li><div><button class="plink" data-project="${h(p.id)}">${h(p.id)} · ${h(p.displayName||p.client)}</button><span class="subline">${h(p.status)} · ${h(p.contractCurrency)} · Project end: ${h(portalProjectEndText(p))}</span></div>${dashboardV5?v5Arrow(p):''}</li>`).join('')}</ul></section>${aiPanelV4()}</div>`;
 }
 
 const formFeedback=()=>'<p class="portal-form-error" data-form-error role="alert" tabindex="-1" hidden></p><p class="portal-form-status" data-form-status role="status"></p>';
