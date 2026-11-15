@@ -325,6 +325,24 @@ html,body,.app,.main,.content{background:#FFFFFF}
 #discard-project-draft::backdrop{background:#3A40614c}
 svg.v5-track{display:block;width:100%}
 .v5-track rect{fill:var(--portal-accent)}
+.financial-note{font-size:12px;line-height:1.6;margin:8px 0;color:var(--portal-ink)}
+.financial-margin{display:inline-flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;max-width:110px}
+.financial-margin small{font-size:11px;line-height:1.4;text-align:center;margin:0}
+.financial-table{margin-top:16px;border-top:1px solid var(--portal-divider)}
+.financial-table:focus-visible{outline:2px solid var(--portal-ink);outline-offset:3px}
+.financial-table caption{text-align:left;padding:12px 0;font-size:13px;font-weight:600;line-height:1.5;color:var(--portal-ink)}
+.financial-table th[scope="row"]{text-transform:none;letter-spacing:normal;white-space:normal;background:var(--portal-canvas);font-size:13px;font-weight:600;min-width:150px}
+.financial-table .financial-number{text-align:right;font-variant-numeric:tabular-nums}
+.financial-table thead th{white-space:normal;min-width:145px}
+.financial-chart-panel .v7-chart{height:330px}
+.v5-financial .v5-bar-row>div:first-child{gap:12px;align-items:baseline}
+.v5-financial .v5-bar-row strong{white-space:nowrap}
+.v5-financial .v5-bar-row span{overflow-wrap:anywhere}
+.v5-financial .v5-analysis-grid table td:nth-child(n+2){text-align:right}
+@media(max-width:640px){
+ .financial-chart-panel .v7-chart{height:310px}
+ .financial-chart-panel{padding:12px}
+}
 
 @media(max-width:780px){
  .sidebar{visibility:hidden;min-height:0;overflow-y:auto;overscroll-behavior:contain}
