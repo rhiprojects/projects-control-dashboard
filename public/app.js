@@ -13,7 +13,7 @@ const cairoDateTime=now=>{
  return datePart+' · '+timePart+' (Cairo)';
 };
 const cairoHour=()=>Number(new Intl.DateTimeFormat('en-GB',{timeZone:PORTAL_TIME_ZONE,hour:'2-digit',hourCycle:'h23'}).format(new Date()));
-const cairoGreeting=name=>(cairoHour()<12?'Good Morning':cairoHour()<17?'Good Afternoon':'Good Evening')+' '+String(name||'').split(' ')[0];
+const cairoGreeting=name=>(cairoHour()<12?'Good Morning':cairoHour()<17?'Good Afternoon':'Good Evening')+', '+String(name||'').split(' ')[0]+'!';
 const date=d=>{
  if(!d)return '—';
  if(/^\d{4}-\d{2}-\d{2}$/.test(String(d))){const [y,m,day]=String(d).split('-');return day+'/'+m+'/'+y;}
@@ -22,10 +22,13 @@ const date=d=>{
 };
 const roleName={super_admin:'Super Admin',head_of_projects:'Head of Projects',team_member:'Team Member'};
 const iconPaths={"grid":"<rect x=\"3\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"3\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/>","projects":"<rect x=\"3\" y=\"5\" width=\"18\" height=\"15\" rx=\"2\"/><path d=\"M3 9h18M7 3v4\"/>","chart":"<path d=\"M4 20V11m6 9V4m6 16v-8m5 8H2\"/>","calendar":"<rect x=\"3\" y=\"5\" width=\"18\" height=\"16\" rx=\"2\"/><path d=\"M7 3v4m10-4v4M3 10h18\"/>","reports":"<path d=\"M6 3h10l4 4v14H6zM16 3v5h4M9 12h8M9 16h8\"/>","admin":"<circle cx=\"12\" cy=\"12\" r=\"4\"/><path d=\"M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2m0-14-2 2M7 17l-2 2\"/>","assistant":"<path d=\"M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z\"/>","contract":"<path d=\"M6 3h10l4 4v14H6zM16 3v5h4M9 12h8M9 16h6\"/>","money":"<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M15 8c-1-2-6-2-6 1 0 3 6 1 6 5 0 3-5 4-7 1M12 5v14\"/>","progress":"<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v6m0 4h.01\"/>"};
+iconPaths.network='<path d="M12 3l9 5v8l-9 5-9-5V8l9-5Z M3 8l9 5 9-5 M12 13v8"/><circle cx="12" cy="3" r="1.8" fill="currentColor" stroke="none"/><circle cx="3" cy="8" r="1.8" fill="currentColor" stroke="none"/><circle cx="21" cy="8" r="1.8" fill="currentColor" stroke="none"/><circle cx="12" cy="21" r="1.8" fill="currentColor" stroke="none"/>';
+iconPaths.team='<circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2H3zM17 5a3 3 0 0 1 0 6M18 14a5 5 0 0 1 4 5v1h-4"/>';
+iconPaths.send='<path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/>';
 const ico=name=>'<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+(iconPaths[name]||iconPaths.grid)+'</svg>';
 let dashboardV5=null,dashboardError=false,dashboardRequest=0;
 let detailsError=false,detailsRequest=0,mobileNavOpen=false,creatingRequest=false;
-let projectStatus='',editingRequest=false;
+let projectStatus='',editingRequest=false,financialDestination='';
 const mobileNavMedia=window.matchMedia('(max-width: 780px)');
 let cfg=null,auth=null,me=null,projects=[],adminData={users:[],assignments:[]},page='overview',chosen=null,edit=false,busy=false,error='',notice='',filter='',reportCode='all',question='',answer='';
 const lead=()=>me?.role==='super_admin'||me?.role==='head_of_projects';
@@ -39,7 +42,7 @@ async function init(){
  render();
 }
 const saveAuth=()=>{if(auth)sessionStorage.setItem('projectsControlSession',JSON.stringify(auth));else sessionStorage.removeItem('projectsControlSession')};
-function logout(refresh=true){aiCancelV9();auth=null;me=null;projects=[];dashboardV5=null;dashboardError=false;++dashboardRequest;adminData={users:[],assignments:[]};page='overview';chosen=null;edit=false;chatV4=[];aiClarificationV4=null;clearProjectDetails();creatingV4=false;creatingRequest=false;editingRequest=false;projectStatus='';mobileNavOpen=false;pendingV4=null;suggestionsV4={};saveAuth();if(refresh)render()}
+function logout(refresh=true){aiCancelV9();auth=null;me=null;projects=[];dashboardV5=null;dashboardError=false;++dashboardRequest;adminData={users:[],assignments:[]};page='overview';chosen=null;edit=false;chatV4=[];aiClarificationV4=null;clearProjectDetails();creatingV4=false;creatingRequest=false;editingRequest=false;projectStatus='';financialDestination='';mobileNavOpen=false;pendingV4=null;suggestionsV4={};saveAuth();if(refresh)render()}
 async function refreshToken(){if(!auth?.refresh_token)return false;
  const r=await fetch(cfg.supabaseUrl+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:cfg.publishableKey,'content-type':'application/json'},body:JSON.stringify({refresh_token:auth.refresh_token})});
  if(!r.ok){logout(false);return false}auth=await r.json();saveAuth();return true;
@@ -87,9 +90,44 @@ async function loadAdmin(){
 function setError(err){error=String(err?.message||err||'Unknown error');notice='';render()}
 function showNotice(msg){error='';notice=msg;render()}
 function loginView(){return `<div class="login-wrap"><section class="login-card"><div class="login-logo"><span class="brandmark">P</span><div class="brandname">Projects Control<small>SECURE MANAGEMENT PORTAL</small></div></div><h1 class="login-title">${cfg?.configured?'Welcome back':'Private configuration required'}</h1><p class="login-desc">${cfg?.configured?'Sign in to manage your projects.':'Please contact your administrator to configure sign-in.'}</p>${error?`<div class="error-box" role="alert">${h(error)}</div>`:''}${cfg?.configured?`<form id="login-form"><div class="login-field"><label for="email">Work email</label><input type="email" id="email" name="email" autocomplete="username" placeholder="name@company.com" required></div><div class="login-field"><label for="password">Password</label><input id="password" type="password" name="password" autocomplete="current-password" required></div><button class="btn primary login-button" type="submit">Secure sign in</button></form>`:`<div class="read-only-note">Please contact your administrator for account access.</div>`}</section></div>`}
-const nav=[['overview','grid','Overview'],['projects','projects','Projects'],['financials','chart','Financials'],['milestones','calendar','Milestones'],['reports','reports','Reports'],['admin','admin','Administration']];
-function layout(content){const name=h(me.displayName),today=cairoDateTime(new Date());
- return `<div class="app"><aside class="sidebar" id="workspace-sidebar"><button class="btn sidebar-close" type="button" data-action="close-menu">Close menu</button><div class="brand"><span class="brandmark">P</span><div class="brandname">Projects Control<small>MANAGEMENT PORTAL</small></div></div><span class="sidecaption">WORKSPACE</span><nav class="nav" aria-label="Workspace">${nav.filter(x=>x[0]!=='admin'||admin()).map(([key,icon,title])=>`<button class="${page===key?'active':''}" data-page="${key}"${page===key?' aria-current="page"':''}><span class="nav-icon">${ico(icon)}</span>${title}${key==='projects'?`<span class="num">${projects.length}</span>`:''}</button>`).join('')}</nav><div class="sidebottom"><span class="online"></span><strong>Secure session</strong><small>${name}<br>${h(roleName[me.role])}</small><button class="signout" data-action="logout">Sign out</button></div></aside><main class="main"><header class="topbar"><div class="breadcrumbs"><button class="btn mobile-menu" type="button" data-action="open-menu" aria-controls="workspace-sidebar" aria-expanded="false">Menu</button><span>Projects Control</span><span>›</span><strong>${h(nav.find(n=>n[0]===page)?.[2]||'Projects')}</strong></div><div class="topactions"><span class="topdate" data-cairo-clock>${h(today)}</span><span class="role-label">${h(roleName[me.role])}</span><span class="avatar">${h((me.displayName||'P').split(' ').map(x=>x[0]).slice(0,2).join('').toUpperCase())}</span></div></header><div class="content">${error?`<div class="error-box" role="alert">${h(error)}</div>`:''}${notice?`<div class="okay-box" role="status">${h(notice)}</div>`:''}${content}</div></main></div>`}
+const financialSections=[
+ ['project-monthly-budget','Monthly Budget'],
+ ['project-cost-budget','Detailed Budget (COGS)'],
+ ['project-pnl-actuals','P&L (Actuals)']
+];
+const nav=[['overview','grid','Overview'],['projects','projects','Projects'],['financials','chart','Financials'],['team','team','Team Workload'],['milestones','calendar','Milestones'],['reports','reports','Reports'],['assistant','assistant','AI Assistant'],['admin','admin','Administration']];
+function navigationMarkup(){
+ return nav.filter(x=>(x[0]!=='admin'||admin())&&(x[0]!=='team'||lead())).map(([key,icon,title])=>{
+  const current=page===key;
+  const item=`<button class="${current?'active':''}" data-page="${key}"${current?' aria-current="page"':''}>
+   <span class="nav-icon">${ico(icon)}</span>${title}
+   ${key==='projects'?`<span class="num">${projects.length}</span>`:''}
+   ${key==='financials'?'<span class="nav-chevron" aria-hidden="true">⌄</span>':''}</button>`;
+  if(key!=='financials')return item;
+  return item+'<div class="nav-submenu" aria-label="Project financial sections">'+financialSections.map(([id,label])=>
+   `<button data-action="financial-section" data-section="${id}"${financialDestination===id?' class="selected"':''}><span aria-hidden="true">•</span>${label}</button>`).join('')+'</div>';
+ }).join('');
+}
+function layout(content){
+ const logo='<svg viewBox="0 0 44 54" aria-hidden="true" focusable="false"><path d="M3 49h38M8 48V35l9-6v19M18 48V18l10-7v37M29 48V6l9-3v45" fill="none" stroke="currentColor" stroke-width="3"/><path d="M8 48V35l9-6v19M18 48V18l10-7v37" fill="currentColor"/></svg>';
+ return `<div class="app"><aside class="sidebar" id="workspace-sidebar">
+ <button class="btn sidebar-close" type="button" data-action="close-menu">Close menu</button>
+ <div class="brand"><span class="industrial-logo">${logo}</span><div class="brandname">RHI<small>PROJECTS CONTROL<br>DASHBOARD</small></div></div>
+ <nav class="nav" aria-label="Workspace">${navigationMarkup()}</nav>
+ <div class="sidebar-photo" aria-hidden="true"></div>
+ <div class="sidebottom"><span class="online"></span><strong>Secure session</strong><small>${h(me.displayName)}<br>${h(roleName[me.role])}</small><button class="signout" data-action="logout">Sign out</button></div>
+ </aside><main class="main"><header class="topbar"><div class="breadcrumbs"><button class="btn mobile-menu" type="button" data-action="open-menu" aria-controls="workspace-sidebar" aria-expanded="false">Menu</button><span>Projects Control</span><span>›</span><strong>${h(nav.find(n=>n[0]===page)?.[2]||'Projects')}</strong></div><form class="topbar-ai" id="ai-header" aria-label="Ask your AI assistant"><input type="text" name="question" aria-label="Ask Your AI Assistant" placeholder="Ask Your AI Assistant" maxlength="1600" required autocomplete="off"><button type="submit" aria-label="Send question to AI Assistant" title="Ask AI Assistant" ${chatBusyV4?'disabled':''}>${ico("send")}</button></form></header>
+ <div class="content">${error?`<div class="error-box" role="alert">${h(error)}</div>`:''}${notice?`<div class="okay-box" role="status">${h(notice)}</div>`:''}${content}</div></main></div>`;
+}
+function focusFinancialSection(){
+ const target=financialDestination&&document.getElementById(financialDestination);
+ if(!target)return;
+ const disclosure=target.querySelector('details');
+ if(disclosure)disclosure.open=true;
+ target.tabIndex=-1;
+ target.scrollIntoView({block:'start'});
+ target.focus({preventScroll:true});
+}
 const heading=(eye,title,subtitle,buttons='')=>`<div class="pageheader"><div><div class="eyebrow">${h(eye)}</div><h1 class="pagetitle">${h(title)}</h1><p class="subtitle">${h(subtitle)}</p></div><div class="meta-row no-print">${buttons}</div></div>`;
 const kpi=(label,value,note,variant='',symbol='projects')=>`<div class="card kpi"><div class="kpi-top"><span class="kpi-label">${h(label)}</span><span class="kpi-icon ${variant}" aria-hidden="true">${ico(symbol)}</span></div><div class="kpi-value">${h(value)}</div><div class="kpi-note">${h(note)}</div></div>`;
 const active=()=>projects.filter(p=>p.status==='Active');
@@ -102,7 +140,7 @@ function projectCard(p){
  const name=p.displayName||p.client||p.name;
  return `<article class="card projectcard">
   <div class="projecttop"><div><div class="projectid">Project ${h(p.id)}</div><h3 class="projectname">${h(name)}</h3>
-   ${p.name&&p.name!==name?`<p class="projectclient">${h(p.name)}</p>`:''}</div><span class="pill ${p.status==='Active'?'green':'neutral'}">${h(p.status||'Not supplied')}</span></div>
+   ${p.name&&p.name!==name?`<p class="projectclient">${h(p.name)}</p>`:''}</div><span class="pill ${p.status==='Active'?'green':p.status==='On Hold'?'amber':p.status==='Cancelled'?'red':'neutral'}">${h(p.status||'Not supplied')}</span></div>
   <dl class="projectstats"><div><dt>Contract value</dt><dd>${h(moneyLabel(p.contractValue,p.contractCurrency))}</dd></div>
    <div><dt>Project end</dt><dd>${h(portalProjectEndText(p))}</dd></div>
    <div><dt>Physical progress</dt><dd>${p.progress===null?'Not recorded':h(p.progress)+'%'}</dd></div></dl>
@@ -142,7 +180,7 @@ function render(){
  if(window.echarts){
   ROOT.querySelectorAll('.v7-chart').forEach(el=>window.echarts.getInstanceByDom(el)?.dispose());
  }
- ROOT.innerHTML=!me?loginView():layout(creatingV4?createV4():chosen?(edit?editProjectV4():projectViewV4()):page==='overview'?overviewV4():page==='projects'?projectListV4():page==='financials'?financePageV4():page==='milestones'?milestonesPageV4():page==='reports'?reportPageV4():page==='admin'?adminPageV4():overviewV4());
+ ROOT.innerHTML=!me?loginView():layout(creatingV4?createV4():chosen?(edit?editProjectV4():projectViewV4()):page==='overview'?overviewV4():page==='projects'?projectListV4():page==='financials'?financePageV4():page==='assistant'?assistantPageV4():page==='team'&&lead()?teamPageV12():page==='milestones'?milestonesPageV4():page==='reports'?reportPageV4():page==='admin'?adminPageV4():overviewV4());
  const replacement=draft&&document.getElementById(draft.id);
  if(replacement){
   replacement.replaceWith(draft);
@@ -189,10 +227,11 @@ ROOT.addEventListener('click',async e=>{
  const el=e.target.closest('button');if(!el)return;
  if(el.dataset.page){
   if(!await canLeaveCreate())return;
-  creatingV4=false;chosen=null;clearProjectDetails();edit=false;page=el.dataset.page;filter='';projectStatus='';clearToast();
+  creatingV4=false;chosen=null;clearProjectDetails();edit=false;page=el.dataset.page;financialDestination='';filter='';projectStatus='';clearToast();
   const closeMenu=mobileNavOpen;
   mobileNavOpen=false;render();
-  if(closeMenu)syncMobileNav('trigger');else focusPage();
+  if(page==='assistant')$('#ai-v4 input')?.focus();
+  else if(closeMenu)syncMobileNav('trigger');else focusPage();
   return;
  }
  if(el.dataset.project){
@@ -207,6 +246,17 @@ ROOT.addEventListener('click',async e=>{
   return;
  }
  const action=el.dataset.action;
+ if(action==='financial-section'){
+  if(!await canLeaveCreate())return;
+  const destination=financialSections.find(([id])=>id===el.dataset.section);
+  if(!destination)return;
+  financialDestination=destination[0];
+  const currentProject=chosen&&!edit&&!creatingV4&&detailsV4;
+  mobileNavOpen=false;
+  if(currentProject){page='financials';render();syncMobileNav();focusFinancialSection();return;}
+  creatingV4=false;chosen=null;clearProjectDetails();edit=false;page='financials';clearToast();
+  render();focusPage();return;
+ }
  if(action==='clear-project-filters'){filter='';projectStatus='';render();$('#project-search')?.focus();return;}
  if(action==='open-menu'){mobileNavOpen=true;syncMobileNav('close');return;}
  if(action==='close-menu'){closeMobileNav();return;}
@@ -247,6 +297,13 @@ ROOT.addEventListener('input',e=>{
  if(e.target.id==='project-search'){filter=e.target.value;updateProjectResults();}
 });
 ROOT.addEventListener('change',async e=>{
+ if(e.target.id==='financial-project'){
+  if(!fromProject(e.target.value)||!financialDestination)return;
+  chosen=e.target.value;clearProjectDetails();edit=false;page='financials';
+  const loading=loadDetailsV4();render();focusPage();
+  if(await loading){render();focusFinancialSection();}
+  return;
+ }
  if(e.target.id==='project-status'){projectStatus=e.target.value;updateProjectResults();return;}
  if(e.target.id==='report-code'){reportCode=e.target.value;render();$('#report-code')?.focus({preventScroll:true});return}
 
@@ -270,32 +327,10 @@ let creatingV4=false, detailsV4=null, chatV4=[],chatBusyV4=false,aiClarification
 let aiRequestNonceV9=0;
 function aiCancelV9(){++aiRequestNonceV9;chatBusyV4=false;}
 function aiBeginV9(){return ++aiRequestNonceV9;}
-function aiSimpleOrbV10(){
- const N=156,center=72,radius=49,goldenAngle=Math.PI*(3-Math.sqrt(5));
- const dots=[];
- for(let i=0;i<N;i++){
-  const depth=1-2*(i+.5)/N;
-  const ringRadius=Math.sqrt(1-depth*depth);
-  const theta=i*goldenAngle;
-  const x=center+Math.cos(theta)*ringRadius*radius;
-  const y=center+Math.sin(theta)*ringRadius*radius;
-  const brightness=(depth+1)/2;
-  const r=(0.75+0.70*brightness).toFixed(2);
-  const op=(.30+.64*brightness).toFixed(2);
-  const sparkle=i%13===0;
-  const delay=-(i%17)*.41;
-  dots.push('<circle class="ai-orb-dot-v10'+(sparkle?' ai-orb-spark-v10':'')+
-   '" cx="'+x.toFixed(2)+'" cy="'+y.toFixed(2)+'" r="'+r+
-   '" fill="'+(brightness>.48?'#3A4061':'#7B88B6')+
-   '" opacity="'+op+'"'+(sparkle?' style="--spark-delay:'+delay.toFixed(2)+'s;--base-opacity:'+op+'"':'')+' />');
- }
- return '<div class="ai-orb-v10" aria-hidden="true"><svg class="ai-orb-svg-v10" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 144 144" focusable="false"><g class="ai-orb-rotate-v10">'+dots.join('')+'</g></svg></div>'+
- '<span class="ai-orb-status-v10" role="status" aria-live="polite">'+(chatBusyV4?'Assistant retrieving a response':'AI Assistant ready')+'</span>';
-}
-
+function assistantPageV4(){return '<div class="assistant-workspace"><h1 class="assistant-page-heading">Projects AI Assistant</h1>'+aiPanelV4()+'</div>';}
 function aiPanelV4(){
  const topics=[["Projects","How many projects can I access?"],["Financials","What are my projects' 2027 budgets?"],["Progress","What is the latest physical progress of my projects?"],["Contracts","What contract details are available?"],["Dates","When are my projects scheduled to finish?"],["Owners","Who is responsible for my projects?"]];
- return `<section class="card ai-card-v4"><div class="ai-top-v4"><h2>AI Assistant</h2><button type="button" title="Clear Chat" aria-label="Clear Chat" class="ai-menu-v4" data-v4="clear">⋮</button></div>${aiSimpleOrbV10()}<h3 class="ai-heading-v4">What Can I Help With?</h3><div class="ai-topics-v4">${topics.map(([label,question])=>`<button type="button" data-v4="prompt" data-question="${h(question)}">${label}</button>`).join("")}</div>${chatV4.length?`<div class="ai-chat-v4">${chatV4.map(x=>`<p class="${x.role==='user'?'my-question':''}">${h(x.content)}</p>`).join('')}</div>`:''}${aiClarificationV4?.kind==='loss_basis'?`<div class="ai-topics-v4" aria-label="Choose how to define loss"><button type="button" data-v4="clarify" data-choice="Gross loss">Gross loss</button><button type="button" data-v4="clarify" data-choice="Net loss">Net loss</button><button type="button" data-v4="clarify" data-choice="Both">Both</button></div>`:''}<form id="ai-v4" class="ai-input-v4"><span aria-hidden="true">✣</span><input aria-label="Ask the AI Assistant" name="question" placeholder="Ask anything about your projects..." maxlength="1600" required><button ${chatBusyV4?'disabled':''}>↑ Send</button></form></section>`;
+ return `<section class="card ai-card-v4" aria-label="Projects AI Assistant"><div class="ai-top-v4"><div class="ai-identity-v4"><span class="ai-mark-v4" aria-hidden="true">${ico("network")}</span><div><h2>Projects AI Assistant</h2><p class="ai-description-v4">Ask about projects, financials, contracts, progress, schedules, and owners.</p></div></div><button type="button" title="Clear chat history" aria-label="Clear chat history" class="ai-menu-v4" data-v4="clear">Clear chat</button></div><h3 class="ai-heading-v4">Quick questions</h3><div class="ai-topics-v4">${topics.map(([label,question])=>`<button type="button" data-v4="prompt" data-question="${h(question)}">${ico(({Projects:"projects",Financials:"chart",Progress:"progress",Contracts:"contract",Dates:"calendar",Owners:"admin"})[label]||"grid")}<span>${label}</span></button>`).join("")}</div>${chatV4.length?`<div class="ai-chat-v4" role="log" aria-label="Assistant conversation" aria-live="polite" tabindex="0">${chatV4.map(x=>`<div class="ai-message ${x.role==='user'?'my-question':''}"><span class="ai-message-author">${x.role==='user'?'You':'Projects AI'}</span><p>${h(x.content)}</p></div>`).join('')}</div>`:''}${aiClarificationV4?.kind==='loss_basis'?`<div class="ai-topics-v4" aria-label="Choose how to define loss"><button type="button" data-v4="clarify" data-choice="Gross loss">Gross loss</button><button type="button" data-v4="clarify" data-choice="Net loss">Net loss</button><button type="button" data-v4="clarify" data-choice="Both">Both</button></div>`:''}<p class="ai-response-status" role="status">${chatBusyV4?'Retrieving project information…':''}</p><form id="ai-v4" class="ai-input-v4"><input aria-label="Ask the AI Assistant" name="question" placeholder="Ask anything about your projects…" maxlength="1600" required><button type="submit" ${chatBusyV4?'disabled':''}>Send ${ico("assistant")}</button></form></section>`;
 }
 
 
@@ -429,42 +464,54 @@ async function v7RenderCharts(){
   try{
    const data=JSON.parse(el.dataset.chart);
    const chart=echarts.init(el,null,{renderer:'svg'});
+   if(data.kind==='donut'){
+    chart.setOption({animation:false,color:['#163F70','#2879BF','#62AAF0','#0F9FBA','#76B8D9','#8A9DBB','#425B81','#B9CFDF'],
+     tooltip:{trigger:'item',formatter:p=>p.name+': '+Number(p.value).toLocaleString('en-US',{maximumFractionDigits:2})+' '+data.currency+' ('+p.percent+'%)'},
+     series:[{type:'pie',radius:['56%','82%'],center:['50%','50%'],
+      data:data.labels.map((name,i)=>({name,value:data.values[i]})),label:{show:false},labelLine:{show:false}}]
+    });
+    if(typeof ResizeObserver==='function'){
+     const observer=new ResizeObserver(()=>{if(el.isConnected)chart.resize();else{observer.disconnect();chart.dispose()}});
+     observer.observe(el);
+    }
+    return;
+   }
    const horizontal=data.kind==='horizontal';
    const totalProjects=Math.max(1,Number(data.maxProjects)||0);
-   const colors=['#3A4061','#7B88B6','#B3C0DD'];
+   const colors=['#1F5E96','#62A2D5','#A0BED6'];
    const option={
     animation:false,
     color:colors,
-    textStyle:{color:'#3A4061'},
+    textStyle:{color:'#243548'},
     tooltip:{
-     trigger:'axis',backgroundColor:'#F4F6FB',borderColor:'#B3C0DD',
-     textStyle:{color:'#3A4061'},
-     axisPointer:{lineStyle:{color:'#B3C0DD'},shadowStyle:{color:'#DBE2F2'}},
+     trigger:'axis',backgroundColor:'#FFFFFF',borderColor:'#BECFDF',
+     textStyle:{color:'#243548'},
+     axisPointer:{lineStyle:{color:'#BECFDF'},shadowStyle:{color:'#E5EEF6'}},
      valueFormatter:v=>v==null?'Not recorded':Number(v).toLocaleString('en-US',{maximumFractionDigits:2})+(data.currency?' '+data.currency:'')
     },
-    legend:{top:0,type:'scroll',textStyle:{color:'#3A4061'}},
+    legend:{top:0,type:'scroll',textStyle:{color:'#243548'}},
     grid:horizontal?{left:24,right:32,top:48,bottom:42,containLabel:true}:{left:16,right:22,top:48,bottom:48,containLabel:true},
     xAxis:horizontal?{
      type:'value',min:0,max:totalProjects,interval:1,minInterval:1,
      name:'Projects',nameLocation:'middle',nameGap:28,
-     axisLabel:{color:'#3A4061',formatter:value=>Number.isInteger(value)?String(value):''},
-     splitLine:{lineStyle:{color:'#DBE2F2'}}
+     axisLabel:{color:'#243548',formatter:value=>Number.isInteger(value)?String(value):''},
+     splitLine:{lineStyle:{color:'#E5EEF6'}}
     }:{
-     type:'category',data:data.labels,axisLabel:{hideOverlap:!data.financial,color:'#3A4061',rotate:data.financial?35:0,...(data.financial?{width:90,overflow:'break'}:{})},
-     axisLine:{lineStyle:{color:'#B3C0DD'}}
+     type:'category',data:data.labels,axisLabel:{hideOverlap:!data.financial,color:'#243548',rotate:data.financial?35:0,...(data.financial?{width:90,overflow:'break'}:{})},
+     axisLine:{lineStyle:{color:'#BECFDF'}}
     },
     yAxis:horizontal?{
      type:'category',data:data.labels,inverse:true,
-     axisLabel:{color:'#3A4061',fontSize:12,margin:16},
-     axisTick:{show:false},axisLine:{lineStyle:{color:'#B3C0DD'}}
+     axisLabel:{color:'#243548',fontSize:12,margin:16},
+     axisTick:{show:false},axisLine:{lineStyle:{color:'#BECFDF'}}
     }:{
-     type:'value',name:data.financial?data.currency:'',axisLabel:{formatter:v=>Number(v).toLocaleString('en-US',{maximumFractionDigits:2}),color:'#3A4061'},
-     splitLine:{lineStyle:{color:'#DBE2F2'}}
+     type:'value',name:data.financial?data.currency:'',axisLabel:{formatter:v=>Number(v).toLocaleString('en-US',{maximumFractionDigits:2}),color:'#243548'},
+     splitLine:{lineStyle:{color:'#E5EEF6'}}
     },
     series:data.series.map((x,i)=>({
      name:x.name,type:data.kind==='line'?'line':'bar',data:x.values,smooth:false,
      barMaxWidth:horizontal?32:36,itemStyle:{color:colors[i%colors.length],
-      ...(data.financial&&i===1?{decal:{symbol:'rect',dashArrayX:[1,0],dashArrayY:[2,4],color:'#3A4061'}}:{})}
+      ...(data.financial&&i===1?{decal:{symbol:'rect',dashArrayX:[1,0],dashArrayY:[2,4],color:'#243548'}}:{})}
     }))
    };
    chart.setOption(option);
@@ -499,7 +546,7 @@ function v5FinancialPanel(p){
  v7Chart('2027 Monthly Project Budget — Approved vs Working'+(currency?' · '+currency:''),'bar',months.map(x=>String(x.period_start).slice(0,7)),[{name:'Approved Budget',values:months.map(x=>v5Number(x.baseline_amount))},{name:'Working Budget',values:months.map(x=>v5Number(x.current_amount))}],currency,{financial:true})+
  (categoriesAvailable?v7Chart('2027 Scheduled Costs By Category'+(currency?' · '+currency:''),'bar',totals.map(x=>x.category),[{name:'Scheduled Costs',values:totals.map(x=>x.amount)}],currency,{financial:true}):'')+
  '<p class="v5-context">'+h(note)+'</p>'+
- '<div class="v5-analysis-grid"><div><h3>Scheduled Costs By Category</h3><p class="v5-context">Budgeted reference costs for included scheduled months. Bar lengths are relative to the largest category; exact amounts are labeled.</p>'+
+ '<div class="v5-analysis-grid"><div><h3>Scheduled Costs By Category</h3>'+
  (categoriesAvailable?totals.map(x=>'<div class="v5-bar-row"><div><span>'+h(x.category)+'</span><strong>'+fmt(x.amount)+' '+h(currency)+'</strong></div>'+categoryBar(x.amount,maximum)+'</div>').join(''):'<p>Category amounts are withheld pending reconciliation with the scheduled monthly budget.</p>')+
  '</div><div><h3>2027 Monthly Project Budget</h3>'+(months.length?'<div class="table-wrap"><table><thead><tr><th>Month</th><th>Approved</th><th>Working</th></tr></thead><tbody>'+months.map(x=>'<tr><td>'+h(String(x.period_start).slice(0,7))+'</td><td>'+v5Money(v5Number(x.baseline_amount),currency)+'</td><td>'+v5Money(v5Number(x.current_amount),currency)+'</td></tr>').join('')+'</tbody></table></div>':'<p>No 2027 monthly project budget recorded.</p>')+'</div></div></section>';
 }
@@ -538,9 +585,9 @@ function v5Portfolio(){
    return [p.id+' · '+(p.displayName||p.client),moneyLabel(v7Total(months,'baseline_amount'),currency),
     moneyLabel(v7Total(months,'current_amount'),currency),moneyLabel(p.contractValue,p.contractCurrency),portalProjectEndText(p)];
   });
-  return v7Chart('2027 Approved Project Budget by Project · '+currency,'bar',labels,[{name:'Approved Project Budget',values}],currency,
-   {financial:true,table:financialTable('2027 project budgets · '+currency+'; original contract values in their own currencies',
-    ['Project','Approved Project Budget','Working Project Budget','Original Contract Value','Project end'],exactRows)});
+  return '<section class="card panel v4-section financial-exact-summary">'+financialTable(
+   '2027 project budgets · '+currency+'; original contract values in their own currencies',
+   ['Project','Approved Project Budget','Working Project Budget','Original Contract Value','Project end'],exactRows)+'</section>';
  }).join('');
  return charts+'<section class="card panel v4-section"><div class="panelhead"><h2 class="paneltitle">Project Financial Overview</h2></div><p class="v5-context">2027 project budgets are forecasts grouped by budget currency. Original contract values retain their contractual currencies. Margin arrows indicate the sign of recorded Revenue minus COGS in the contract currency; they do not show a trend. Unavailable actuals remain neutral.</p><div class="v5-portfolio-grid">'+active().map(p=>{
   const currency=v7BudgetCurrency(p.id);
@@ -550,9 +597,72 @@ function v5Portfolio(){
  }).join('')+'</div>'+(!active().length?'<p>No active project records available.</p>':'')+'</section>';
 }
 
+function dashboardEntriesV12(){
+ return active().map(p=>{
+  const currency=v7BudgetCurrency(p.id);
+  const periods=currency?portalScheduledMonths(p,v7MonthlyBudget(p.id).filter(x=>x.currency===currency)):[];
+  return {p,currency,approved:v7Total(periods,'baseline_amount'),working:v7Total(periods,'current_amount'),
+   budgetMonths:new Set(periods.filter(x=>v5Number(x.baseline_amount)!==null&&Number(x.baseline_amount)!==0).map(x=>String(x.period_start).slice(0,7)))};
+ });
+}
+
+function dashboardTimelineV12(entries){
+ const names=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+ const lines=entries.map(x=>{
+  const label=x.p.id+' · '+(x.p.displayName||x.p.client);
+  const months=names.map((name,i)=>{
+   const period='2027-'+String(i+1).padStart(2,'0');
+   return '<span class="dashboard-timeline-cell'+(x.budgetMonths.has(period)?' is-funded':'')+'" title="'+h(name+' 2027: '+(x.budgetMonths.has(period)?'approved monthly budget recorded':'no nonzero approved budget recorded'))+'"></span>';
+  }).join('');
+  return '<div class="dashboard-timeline-line"><span class="dashboard-timeline-project" title="'+h(label)+'">'+h(label)+'</span>'+
+   '<div class="dashboard-timeline-cells" role="img" aria-label="'+h(label+': '+([...x.budgetMonths].sort().join(', ')||'no recorded budget months'))+'">'+months+'</div>'+
+   '<span class="dashboard-timeline-end">'+h(portalProjectEndText(x.p))+'</span></div>';
+ }).join('');
+ return '<section class="card panel dashboard-timeline"><div class="dashboard-timeline-header"><h2 class="paneltitle">2027 Project Timeline</h2><span>Blue indicates months with recorded approved budgets</span></div>'+
+ '<div class="dashboard-timeline-scroll"><div class="dashboard-timeline-grid"><div class="dashboard-timeline-head"><span>Project</span><div class="dashboard-timeline-months">'+names.map(x=>'<span>'+x+'</span>').join('')+'</div><span>Project end</span></div>'+lines+'</div></div></section>';
+}
+
+function dashboardFinancialV12(){
+ const entries=dashboardEntriesV12();
+ const currencies=[...new Set(entries.map(x=>x.currency).filter(Boolean))];
+ const colors=['#163F70','#2879BF','#62AAF0','#0F9FBA','#76B8D9','#8A9DBB','#425B81','#B9CFDF'];
+ const budgetCharts=currencies.map(currency=>{
+  const rows=entries.filter(x=>x.currency===currency&&(x.approved!==null||x.working!==null));
+  const positive=rows.filter(x=>x.approved>0);
+  const total=positive.reduce((sum,x)=>sum+x.approved,0);
+  const ring=total>0?'<div class="dashboard-donut-wrapper">'+
+   '<div class="v7-chart dashboard-donut" role="img" aria-label="'+h('2027 approved budget distribution in '+currency)+'" data-chart="'+h(JSON.stringify({kind:'donut',currency,labels:rows.map(x=>x.p.id),values:rows.map(x=>x.approved>0?x.approved:0)}))+'"></div>'+
+   '<div class="dashboard-donut-center" aria-hidden="true"><strong>'+h(fmt(total))+'</strong><small>'+h(currency)+' total</small></div></div>':
+   '<p>No positive approved amounts recorded for a distribution chart.</p>';
+  const legend=rows.map((x,i)=>'<li><span class="dashboard-legend-swatch" style="background:'+colors[i%colors.length]+'"></span>'+
+   '<span class="dashboard-legend-project">'+h(x.p.id+' · '+(x.p.displayName||x.p.client))+'</span>'+
+   '<strong>'+h(moneyLabel(x.approved,currency))+'</strong>'+
+   '<small>'+(total>0&&x.approved!==null&&x.approved>=0?h((x.approved/total*100).toFixed(1))+'%':'—')+'</small></li>').join('');
+  const bar=rows.length?v7Chart('Approved vs. Working Budget · '+currency,'bar',rows.map(x=>x.p.id),[
+   {name:'Approved Budget',values:rows.map(x=>x.approved)},
+   {name:'Working Budget',values:rows.map(x=>x.working)}
+  ],currency):'<p>No recorded project budgets to compare.</p>';
+  return '<div class="dashboard-budget-group"><section class="card panel dashboard-budget-distribution"><h3>Budget Distribution by Project · '+h(currency)+'</h3>'+
+   '<div class="dashboard-budget-distribution-body">'+ring+'<ul class="dashboard-budget-legend">'+legend+'</ul></div></section>'+
+   '<div class="dashboard-budget-comparison">'+bar+'</div></div>';
+ }).join('');
+ const ends='<section class="card panel dashboard-project-ends"><h3>Project End Dates</h3><ul>'+
+  entries.map(x=>'<li><span>'+h(x.p.id+' · '+(x.p.displayName||x.p.client))+'</span><strong>'+h(portalProjectEndText(x.p))+'</strong></li>').join('')+'</ul></section>';
+ return '<section class="dashboard-financial-overview"><div class="dashboard-financial-heading"><h2>2027 Project Financial Overview</h2></div>'+
+ '<div class="dashboard-financial-grid"><div class="dashboard-budget-groups">'+
+ (budgetCharts||'<section class="card panel"><p>No 2027 project budget entries available.</p></section>')+
+ '</div>'+ends+'</div>'+dashboardTimelineV12(entries)+'</section>';
+}
+
+function teamPageV12(){
+ if(!lead())return overviewV4();
+ return heading('Team','Team Workload','Assignments for accessible projects.')+
+ (dashboardV5?v5TeamPanel():dataStatus('Team workload',dashboardError,'retry-dashboard'));
+}
+
 function overviewV4(){
- return heading("Overview",me.role==="head_of_projects"?cairoGreeting(me.displayName):`Welcome, ${me.displayName.split(' ')[0]}`,"Your projects at a glance.",'<button class="btn" data-action="reload">↻ Refresh</button>')+
- `<div class="cards">${kpi('Active Projects',String(active().length),'Active Projects','','projects')}${kpi('Original Contract Value · EGP',contractTotalLabel('EGP'),'Active projects · contractual amounts','blue','contract')}${kpi('Original Contract Value · USD',contractTotalLabel('USD'),'Active projects · contractual amounts','','money')}${kpi('Progress Not Recorded',String(missing('progress')),'Active Projects','amber','progress')}</div><div class="grid-two v4-grid"><section class="card panel"><div class="panelhead"><h2 class="paneltitle">Your Active Projects</h2><button class="btn small" data-page="projects">View all</button></div><ul class="list-naked">${active().map(p=>`<li><div><button class="plink" data-project="${h(p.id)}">${h(p.id)} · ${h(p.displayName||p.client)}</button><span class="subline">${h(p.status)} · ${h(p.contractCurrency)} · Project end: ${h(portalProjectEndText(p))}</span></div>${dashboardV5?v5Arrow(p):''}</li>`).join('')}</ul></section>${aiPanelV4()}</div>${dashboardV5?v5TeamPanel()+v5Portfolio():dataStatus('Dashboard data',dashboardError,'retry-dashboard')}`;
+ return `<div class="pageheader overview-header"><h1 class="pagetitle">${h(cairoGreeting(me.displayName))}</h1><button class="btn" data-action="reload">↻ Refresh</button></div>`+
+ `<div class="cards">${kpi('Active Projects',String(active().length),'Active Projects','','projects')}${kpi('Original Contract Value · EGP',contractTotalLabel('EGP'),'Active projects · contractual amounts','blue','contract')}${kpi('Original Contract Value · USD',contractTotalLabel('USD'),'Active projects · contractual amounts','','money')}${kpi('Progress Not Recorded',String(missing('progress')),'Active Projects','amber','progress')}</div>${dashboardV5?dashboardFinancialV12():dataStatus("Dashboard data",dashboardError,"retry-dashboard")}<div class="overview-projects-section"><section class="card panel"><div class="panelhead"><h2 class="paneltitle">Your Active Projects</h2><button class="btn small" data-page="projects">View all</button></div><ul class="list-naked">${active().map(p=>`<li><div><button class="plink" data-project="${h(p.id)}">${h(p.id)} · ${h(p.displayName||p.client)}</button><span class="subline">${h(p.status)} · ${h(p.contractCurrency)} · Project end: ${h(portalProjectEndText(p))}</span></div>${dashboardV5?v5Arrow(p):''}</li>`).join('')}</ul></section></div>`;
 }
 
 const formFeedback=()=>'<p class="portal-form-error" data-form-error role="alert" tabindex="-1" hidden></p><p class="portal-form-status" data-form-status role="status"></p>';
@@ -637,9 +747,9 @@ function projectTeamV4(d){
 function projectRecordsV4(d){
  const {monthly:allMonthly=[],lines=[],actuals=[],history=[]}=d;
  const totals=portalScheduledMonths(fromProject(chosen),allMonthly);
- return `<section class="card panel v4-section"><h2 class="paneltitle">Monthly Budget</h2><p class="v5-context">Project end: ${h(portalProjectEndText(fromProject(chosen)))}</p>${totals.length?`<div class="table-wrap"><table><thead><tr><th>Period</th><th>Currency</th><th>Approved</th><th>Working budget</th><th></th></tr></thead><tbody>${totals.map(r=>`<tr><td>${h(r.period_start)}</td><td>${h(r.currency)}</td><td>${fmt(r.baseline_amount===null?null:Number(r.baseline_amount))}</td><td><input class="v4-amount" data-money="monthly-${h(r.period_start)}" type="number" step="0.01" value="${r.current_amount??''}"></td><td><span class="budget-save-feedback"><button class="btn small" data-v4="save-money" data-kind="monthly" data-entry="${h(r.period_start)}" data-updated="${h(r.updated_at)}">Save</button><span class="budget-save-error" data-save-error role="alert" hidden></span></span></td></tr>`).join('')}</tbody></table></div>`:'<p>No budget entered.</p>'}<form id="add-period-v4" class="v4-inline"><label>Add month or year <input type="month" name="period" required></label><button class="btn">Add month</button></form></section>
- <section class="card panel v4-section"><h2 class="paneltitle">Detailed Budget &amp; COGS</h2><p class="v5-context">Full-year reference cost lines may extend beyond scheduled project budget months. The 2027 Monthly Project Budget above follows the current project end. Source cost lines outside that period remain visible for audit but do not automatically extend the approved budget.</p>${lines.length?`<details><summary>View ${lines.length} budget entries</summary><div class="table-wrap v4-scroll"><table><thead><tr><th>Period</th><th>Category</th><th>Detail</th><th>Approved</th><th>Working</th><th></th></tr></thead><tbody>${lines.map(r=>`<tr><td>${h(r.period_start)}</td><td>${h(r.category)}</td><td>${h(r.detail)}</td><td>${fmt(r.baseline_amount===null?null:Number(r.baseline_amount))} ${h(r.currency)}</td><td><input class="v4-amount" data-money="line-${r.id}" type="number" step="0.01" value="${r.current_amount??''}"></td><td><span class="budget-save-feedback"><button class="btn small" data-v4="save-money" data-kind="line" data-entry="${r.id}" data-updated="${h(r.updated_at)}">Save</button><span class="budget-save-error" data-save-error role="alert" hidden></span></span></td></tr>`).join('')}</tbody></table></div></details>`:'<p>No cost details entered.</p>'}</section>
- <section class="card panel v4-section"><h2 class="paneltitle">Historical P&amp;L Actuals</h2>${actuals.length?`<div class="table-wrap"><table><thead><tr><th>Period</th><th>Account</th><th>Currency</th><th>Amount</th><th></th></tr></thead><tbody>${actuals.map(r=>`<tr><td>${h(r.period_start)}</td><td>${h(r.account_name)}</td><td>${h(r.currency)}</td><td>${lead()?`<input class="v4-amount" data-money="actual-${r.id}" type="number" step="0.01" value="${r.amount}">`:fmt(Number(r.amount))}</td><td>${lead()?`<span class="budget-save-feedback"><button class="btn small" data-v4="save-money" data-kind="actual" data-entry="${r.id}" data-updated="${h(r.updated_at)}">Save</button><span class="budget-save-error" data-save-error role="alert" hidden></span></span>`:''}</td></tr>`).join('')}</tbody></table></div>`:'<p>No historical P&amp;L actuals recorded.</p>'}</section>
+ return `<section id="project-monthly-budget" class="card panel v4-section"><h2 class="paneltitle">Monthly Budget</h2><p class="v5-context">Project end: ${h(portalProjectEndText(fromProject(chosen)))}</p>${totals.length?`<div class="table-wrap"><table><thead><tr><th>Period</th><th>Currency</th><th>Approved</th><th>Working budget</th><th></th></tr></thead><tbody>${totals.map(r=>`<tr><td>${h(r.period_start)}</td><td>${h(r.currency)}</td><td>${fmt(r.baseline_amount===null?null:Number(r.baseline_amount))}</td><td><input class="v4-amount" data-money="monthly-${h(r.period_start)}" type="number" step="0.01" value="${r.current_amount??''}"></td><td><span class="budget-save-feedback"><button class="btn small" data-v4="save-money" data-kind="monthly" data-entry="${h(r.period_start)}" data-updated="${h(r.updated_at)}">Save</button><span class="budget-save-error" data-save-error role="alert" hidden></span></span></td></tr>`).join('')}</tbody></table></div>`:'<p>No budget entered.</p>'}<form id="add-period-v4" class="v4-inline"><label>Add month or year <input type="month" name="period" required></label><button class="btn">Add month</button></form></section>
+ <section id="project-cost-budget" class="card panel v4-section"><h2 class="paneltitle">Detailed Budget &amp; COGS</h2><p class="v5-context">Full-year reference cost lines may extend beyond scheduled project budget months. The 2027 Monthly Project Budget above follows the current project end. Source cost lines outside that period remain visible for audit but do not automatically extend the approved budget.</p>${lines.length?`<details><summary>View ${lines.length} budget entries</summary><div class="table-wrap v4-scroll"><table><thead><tr><th>Period</th><th>Category</th><th>Detail</th><th>Approved</th><th>Working</th><th></th></tr></thead><tbody>${lines.map(r=>`<tr><td>${h(r.period_start)}</td><td>${h(r.category)}</td><td>${h(r.detail)}</td><td>${fmt(r.baseline_amount===null?null:Number(r.baseline_amount))} ${h(r.currency)}</td><td><input class="v4-amount" data-money="line-${r.id}" type="number" step="0.01" value="${r.current_amount??''}"></td><td><span class="budget-save-feedback"><button class="btn small" data-v4="save-money" data-kind="line" data-entry="${r.id}" data-updated="${h(r.updated_at)}">Save</button><span class="budget-save-error" data-save-error role="alert" hidden></span></span></td></tr>`).join('')}</tbody></table></div></details>`:'<p>No cost details entered.</p>'}</section>
+ <section id="project-pnl-actuals" class="card panel v4-section"><h2 class="paneltitle">Historical P&amp;L Actuals</h2>${actuals.length?`<div class="table-wrap"><table><thead><tr><th>Period</th><th>Account</th><th>Currency</th><th>Amount</th><th></th></tr></thead><tbody>${actuals.map(r=>`<tr><td>${h(r.period_start)}</td><td>${h(r.account_name)}</td><td>${h(r.currency)}</td><td>${lead()?`<input class="v4-amount" data-money="actual-${r.id}" type="number" step="0.01" value="${r.amount}">`:fmt(Number(r.amount))}</td><td>${lead()?`<span class="budget-save-feedback"><button class="btn small" data-v4="save-money" data-kind="actual" data-entry="${r.id}" data-updated="${h(r.updated_at)}">Save</button><span class="budget-save-error" data-save-error role="alert" hidden></span></span>`:''}</td></tr>`).join('')}</tbody></table></div>`:'<p>No historical P&amp;L actuals recorded.</p>'}</section>
  <section class="card panel v4-section"><h2 class="paneltitle">Financial Change History</h2>${history.length?`<div class="table-wrap"><table><thead><tr><th>Date / Time (Cairo)</th><th>Changed by</th><th>Field</th><th>Previous</th><th>New</th></tr></thead><tbody>${history.map(x=>`<tr><td>${h(date(x.edited_at))}</td><td>${h((d?.people||[]).find(u=>u.id===x.edited_by)?.display_name||'Unavailable')}</td><td>${h(x.financial_area+' · '+x.entry_key)}</td><td>${h(x.previous_value??'—')}</td><td>${h(x.new_value??'—')}</td></tr>`).join('')}</tbody></table></div>`:'<p>No financial changes recorded.</p>'}</section>`;
 }
 
@@ -686,7 +796,9 @@ function editProjectV4(){
 }
 
 function financePageV4(){
- return heading('Financials','Project Financials','Review 2027 approved project budgets by budget currency. Contract values are listed separately in their original currencies.')+(dashboardV5?v5Portfolio():dataStatus('Portfolio budget data',dashboardError,'retry-dashboard'))+`<section class="card tablecard"><div class="tablehead"><h2 class="paneltitle">Contract values by project</h2></div><div class="table-wrap portal-table" role="region" aria-label="Contract values by project" tabindex="0"><table><thead><tr><th scope="col">Project</th><th scope="col">Client</th><th scope="col" class="numeric-cell">Contract value</th><th scope="col">Project end</th><th scope="col" class="numeric-cell">Progress</th><th scope="col">Details</th></tr></thead><tbody>${projects.map(p=>`<tr><td>${h(p.id)}</td><td>${h(p.client)}</td><td class="numeric-cell">${h(moneyLabel(p.contractValue,p.contractCurrency))}</td><td>${h(portalProjectEndText(p))}</td><td class="numeric-cell">${p.progress===null?'—':p.progress+'%'}</td><td><button class="btn small" data-project="${h(p.id)}" aria-label="Open project ${h(p.id)}">Open</button></td></tr>`).join('')}</tbody></table></div></section>`;
+ const selectedSection=financialSections.find(([id])=>id===financialDestination);
+ const sectionPicker=selectedSection?`<section class="card panel finance-section-picker"><h2 class="paneltitle">${h(selectedSection[1])}</h2><label class="portal-control">Select a project<select id="financial-project"><option value="">Choose an accessible project</option>${projects.map(p=>`<option value="${h(p.id)}">${h(p.id)} · ${h(p.displayName||p.client)}</option>`).join('')}</select></label></section>`:'';
+ return heading('Financials','Project Financials','Review 2027 approved project budgets by budget currency. Contract values are listed separately in their original currencies.')+sectionPicker+(dashboardV5?v5Portfolio():dataStatus('Portfolio budget data',dashboardError,'retry-dashboard'))+`<section class="card tablecard"><div class="tablehead"><h2 class="paneltitle">Contract values by project</h2></div><div class="table-wrap portal-table" role="region" aria-label="Contract values by project" tabindex="0"><table><thead><tr><th scope="col">Project</th><th scope="col">Client</th><th scope="col" class="numeric-cell">Contract value</th><th scope="col">Project end</th><th scope="col" class="numeric-cell">Progress</th><th scope="col">Details</th></tr></thead><tbody>${projects.map(p=>`<tr><td>${h(p.id)}</td><td>${h(p.client)}</td><td class="numeric-cell">${h(moneyLabel(p.contractValue,p.contractCurrency))}</td><td>${h(portalProjectEndText(p))}</td><td class="numeric-cell">${p.progress===null?'—':p.progress+'%'}</td><td><button class="btn small" data-project="${h(p.id)}" aria-label="Open project ${h(p.id)}">Open</button></td></tr>`).join('')}</tbody></table></div></section>`;
 }
 
 function milestonesPageV4(){
@@ -899,11 +1011,16 @@ ROOT.addEventListener('change',async event=>{
 });
 ROOT.addEventListener('submit',async event=>{
  const form=event.target,id=form.id;
- if(!['ai-v4','create-v4','edit-v4','add-period-v4','contract-v4','numbers-v4','assign-v4'].includes(id))return;
+ if(!['ai-v4','ai-header','create-v4','edit-v4','add-period-v4','contract-v4','numbers-v4','assign-v4'].includes(id))return;
  event.preventDefault();
- if(id==='ai-v4'){
+ if(id==='ai-v4'||id==='ai-header'){
   const question=String(new FormData(form).get('question')||'').trim();
   if(!question||chatBusyV4)return;
+  if(id==='ai-header'){
+   if(!await canLeaveCreate())return;
+   creatingV4=false;chosen=null;clearProjectDetails();edit=false;
+   page='assistant';financialDestination='';filter='';projectStatus='';clearToast();mobileNavOpen=false;
+  }
   const history=chatV4.slice(-6);chatV4.push({role:'user',content:question});
   chatBusyV4=true;const ticket=aiBeginV9();render();
   try{
