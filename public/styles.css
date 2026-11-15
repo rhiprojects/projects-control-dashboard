@@ -253,134 +253,38 @@ html,body,.app,.main,.content{background:#FFFFFF}
 @media(max-width:560px){.v8-team-members{padding:12px}.v8-member-top{flex-wrap:wrap}}
 
 
-/* AI Assistant v9: geometric dot matrix with honest request lifecycle states.
-   start = stable cube, thinking = organic surface, working = in-flight portal
-   request with independently orbiting bands, success = settled ambient rotation. */
-.ai-matrix-v9{
- position:relative;
- width:132px;
- height:132px;
- margin:2px auto 13px;
+/* v10: reliable dotted SVG orb — one continuous rotation and subtle local pulses.
+   Dot positions are SVG cx/cy values, so the orb remains visible without animation. */
+.ai-orb-v10{
+ width:144px;
+ height:144px;
  display:grid;
  place-items:center;
- isolation:isolate;
- perspective:340px;
- background:radial-gradient(circle at center,rgba(179,192,221,.28) 0%,rgba(219,226,242,.12) 43%,transparent 72%);
+ margin:0 auto 10px;
+ background:radial-gradient(circle,rgba(219,226,242,.26),rgba(244,246,251,.08) 48%,transparent 74%);
  border-radius:50%;
 }
-.ai-matrix-v9::before{
- content:"";
- position:absolute;
- inset:24px;
- border:1px solid rgba(123,136,182,.12);
- border-radius:50%;
- box-shadow:0 0 20px rgba(123,136,182,.07);
- pointer-events:none;
-}
-.ai-matrix-scene-v9{
- position:relative;
- width:0;
- height:0;
- transform-style:preserve-3d;
- transform:rotateX(-24deg) rotateY(34deg);
- transition:transform .9s cubic-bezier(.22,.76,.28,1);
- will-change:transform;
-}
-.ai-matrix-core-v9,
-.ai-matrix-ring-v9{
- position:absolute;
- left:0;
- top:0;
- width:0;
- height:0;
- transform-style:preserve-3d;
- pointer-events:none;
-}
-.ai-matrix-dot-v9,
-.ai-matrix-ring-dot-v9{
- position:absolute;
+.ai-orb-svg-v10{
  display:block;
- left:-2px;
- top:-2px;
- width:4px;
- height:4px;
- border-radius:50%;
- background:radial-gradient(circle at 30% 25%,#DBE2F2 0%,#7B88B6 42%,#3A4061 100%);
- box-shadow:0 0 3px rgba(58,64,97,.17);
- backface-visibility:visible;
+ width:138px;
+ height:138px;
+ overflow:visible;
 }
-.ai-matrix-dot-v9{
- transform:translateZ(var(--cz));
- opacity:var(--op);
- transition:transform .85s cubic-bezier(.16,.82,.26,1),opacity .5s ease;
+.ai-orb-rotate-v10{
+ transform-box:view-box;
+ transform-origin:72px 72px;
+ animation:ai-orb-turn-v10 19s linear infinite;
 }
-.ai-matrix-ring-v9{
- opacity:0;
- transition:opacity .35s ease;
+.ai-orb-dot-v10{
+ stroke:none;
 }
-.ai-matrix-ring-dot-v9{
- left:-1.4px;
- top:-1.4px;
- width:2.8px;
- height:2.8px;
- background:#7B88B6;
- box-shadow:0 0 5px rgba(58,64,97,.22);
- transform:translateZ(0);
- opacity:.92;
+.ai-orb-spark-v10{
+ transform-box:fill-box;
+ transform-origin:center;
+ animation:ai-orb-pulse-v10 4.4s ease-in-out infinite;
+ animation-delay:var(--spark-delay,0s);
 }
-.ai-matrix-glow-v9{
- position:absolute;
- inset:24px;
- z-index:-1;
- border-radius:50%;
- background:radial-gradient(circle,rgba(179,192,221,.38),rgba(123,136,182,.08) 53%,transparent 72%);
- filter:blur(10px);
- opacity:.3;
- transition:opacity .8s ease,transform 1.4s ease;
- pointer-events:none;
-}
-.ai-matrix-v9[data-state="start"] .ai-matrix-scene-v9{
- transform:rotateX(-24deg) rotateY(34deg);
-}
-.ai-matrix-v9[data-state="thinking"] .ai-matrix-scene-v9{
- animation:ai-v9-thinking-sway 5.2s ease-in-out infinite alternate;
-}
-.ai-matrix-v9[data-state="thinking"] .ai-matrix-dot-v9{
- animation:ai-v9-bubble 1.85s cubic-bezier(.45,0,.55,1) infinite;
- animation-delay:calc(0s - var(--phase));
-}
-.ai-matrix-v9[data-state="working"] .ai-matrix-scene-v9{
- animation:ai-v9-working-orbit 8s linear infinite;
-}
-.ai-matrix-v9[data-state="working"] .ai-matrix-dot-v9,
-.ai-matrix-v9[data-state="success"] .ai-matrix-dot-v9{
- transform:translate3d(calc(var(--sx) - var(--cx)),calc(var(--sy) - var(--cy)),var(--sz));
- opacity:var(--op);
-}
-.ai-matrix-v9[data-state="working"] .ai-matrix-ring-v9{
- opacity:1;
-}
-.ai-matrix-v9[data-state="working"] .ai-matrix-ring-0{
- animation:ai-v9-ring-x 2.6s linear infinite;
-}
-.ai-matrix-v9[data-state="working"] .ai-matrix-ring-1{
- animation:ai-v9-ring-y 3.3s linear infinite reverse;
-}
-.ai-matrix-v9[data-state="working"] .ai-matrix-ring-2{
- animation:ai-v9-ring-angled 3.8s linear infinite;
-}
-.ai-matrix-v9[data-state="success"] .ai-matrix-scene-v9{
- animation:ai-v9-success-drift 19s linear infinite;
-}
-.ai-matrix-v9[data-state="success"] .ai-matrix-glow-v9{
- opacity:.88;
- animation:ai-v9-success-aura 3.4s ease-in-out infinite alternate;
-}
-.ai-matrix-v9[data-state="success"]::before{
- border-color:rgba(123,136,182,.3);
- box-shadow:0 0 27px rgba(123,136,182,.23);
-}
-.ai-matrix-sr-v9{
+.ai-orb-status-v10{
  position:absolute!important;
  width:1px;
  height:1px;
@@ -391,52 +295,20 @@ html,body,.app,.main,.content{background:#FFFFFF}
  white-space:nowrap;
  border:0;
 }
-@keyframes ai-v9-thinking-sway{
- from{transform:rotateX(-17deg) rotateY(0deg) rotateZ(-5deg) scale(.98)}
- to{transform:rotateX(20deg) rotateY(38deg) rotateZ(7deg) scale(1.035)}
+@keyframes ai-orb-turn-v10{
+ from{transform:rotate(0deg)}
+ to{transform:rotate(360deg)}
 }
-@keyframes ai-v9-bubble{
- 0%,100%{transform:translate3d(calc(var(--sx) - var(--cx)),calc(var(--sy) - var(--cy)),var(--sz)) scale(.85);opacity:var(--op)}
- 43%{transform:translate3d(calc(var(--bx) - var(--cx)),calc(var(--by) - var(--cy)),var(--bz)) scale(1.4);opacity:1}
- 68%{transform:translate3d(calc(var(--sx) - var(--cx)),calc(var(--sy) - var(--cy)),var(--sz)) scale(1.01);opacity:.88}
+@keyframes ai-orb-pulse-v10{
+ 0%,74%,100%{opacity:var(--base-opacity,.8);transform:scale(1)}
+ 83%{opacity:1;transform:scale(1.6)}
+ 89%{opacity:1;transform:scale(1.12)}
 }
-@keyframes ai-v9-working-orbit{
- from{transform:rotateX(-20deg) rotateY(25deg) rotateZ(0deg)}
- to{transform:rotateX(340deg) rotateY(385deg) rotateZ(180deg)}
-}
-@keyframes ai-v9-ring-x{
- from{transform:rotateX(73deg) rotateZ(0deg)}
- to{transform:rotateX(73deg) rotateZ(360deg)}
-}
-@keyframes ai-v9-ring-y{
- from{transform:rotateY(78deg) rotateZ(0deg)}
- to{transform:rotateY(78deg) rotateZ(360deg)}
-}
-@keyframes ai-v9-ring-angled{
- from{transform:rotateX(47deg) rotateY(40deg) rotateZ(0deg)}
- to{transform:rotateX(47deg) rotateY(40deg) rotateZ(360deg)}
-}
-@keyframes ai-v9-success-drift{
- from{transform:rotateX(13deg) rotateY(5deg)}
- to{transform:rotateX(13deg) rotateY(365deg)}
-}
-@keyframes ai-v9-success-aura{
- from{transform:scale(.95);opacity:.48}
- to{transform:scale(1.23);opacity:.92}
-}
-@media (prefers-reduced-motion:reduce){
- .ai-matrix-v9,
- .ai-matrix-v9 *,
- .ai-matrix-v9::before{
+@media(prefers-reduced-motion:reduce){
+ .ai-orb-rotate-v10,.ai-orb-spark-v10{
   animation:none!important;
-  transition:none!important;
- }
- .ai-matrix-v9[data-state="thinking"] .ai-matrix-dot-v9,
- .ai-matrix-v9[data-state="working"] .ai-matrix-dot-v9,
- .ai-matrix-v9[data-state="success"] .ai-matrix-dot-v9{
-  transform:translate3d(calc(var(--sx) - var(--cx)),calc(var(--sy) - var(--cy)),var(--sz));
  }
 }
-@media (max-width:560px){
- .ai-matrix-v9{margin:0 auto 10px}
+@media(max-width:560px){
+ .ai-orb-v10{margin:0 auto 8px}
 }
