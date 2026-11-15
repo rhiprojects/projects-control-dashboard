@@ -4,120 +4,61 @@ import {readFileSync} from 'node:fs';
 
 const app=readFileSync(new URL('../public/app.js',import.meta.url),'utf8');
 const css=readFileSync(new URL('../public/styles.css',import.meta.url),'utf8');
-const start=app.indexOf('const aiOrbLabelsV9=');
+const start=app.indexOf('let aiRequestNonceV9=0;');
 const end=app.indexOf('function aiPanelV4(){',start);
-assert.ok(start>=0&&end>start,'AI matrix functions must exist in the frontend');
+assert.ok(start>=0&&end>start,'Simple SVG orb implementation must be present');
 const helpers=app.slice(start,end);
 
-function harness(busy=true){
- const nodes={scene:{dataset:{state:'start'}},label:{textContent:''}};
- const root={querySelector:selector=>({
-  '.ai-matrix-v9':nodes.scene,
-  '.ai-matrix-sr-v9':nodes.label
- })[selector]||null};
- let nextId=0;
- const timers=new Map();
- const setTimer=(fn,delay)=>{const id=++nextId;timers.set(id,{fn,delay});return id};
- const clearTimer=id=>timers.delete(id);
- const tick=delay=>{
-  for(const [id,timer] of [...timers]){
-   if(timer.delay===delay){timers.delete(id);timer.fn()}
-  }
- };
- const result=new Function('ROOT','setTimeout','clearTimeout','chatBusyV4',
-  helpers+'\nreturn {markup:aiDotMatrixMarkupV9,begin:aiBeginV9,finish:aiEndV9,cancel:aiCancelV9,state:()=>aiVisualStateV9,nonce:()=>aiRequestNonceV9};'
- )(root,setTimer,clearTimer,busy);
- return {...result,nodes,timers,tick};
-}
+const renderOrb=busy=>new Function('chatBusyV4',helpers+'return aiSimpleOrbV10();')(busy);
 
-test('idle orb is a real dot matrix: cube coordinates, sphere coordinates, and three working rings',()=>{
- const visual=harness();
- const markup=visual.markup();
- assert.equal(visual.state(),'start');
- assert.equal((markup.match(/class="ai-matrix-dot-v9"/g)||[]).length,96);
- assert.equal((markup.match(/class="ai-matrix-ring-dot-v9"/g)||[]).length,84);
- assert.equal((markup.match(/class="ai-matrix-ring-v9 /g)||[]).length,3);
- assert.match(markup,/--cx:/);
- assert.match(markup,/--sx:/);
- // Real coordinates are essential: if 3D transforms fail, dots must not
- // collapse into one tiny spot as they did in the reported screenshot.
- const xyz=[...markup.matchAll(/<i class="ai-matrix-dot-v9" style="left:([-0-9.]+)px;top:([-0-9.]+)px;/g)];
- assert.equal(xyz.length,96);
- const spread=axis=>{
-  const coordinates=xyz.map(match=>Number(match[axis]));
-  return Math.max(...coordinates)-Math.min(...coordinates);
- };
- assert.ok(spread(1)>=50,'Cube dots must span at least 50px horizontally');
- assert.ok(spread(2)>=50,'Cube dots must span at least 50px vertically');
- const rings=[...markup.matchAll(/<i class="ai-matrix-ring-dot-v9" style="left:([-0-9.]+)px;top:([-0-9.]+)px"/g)];
- assert.equal(rings.length,84);
-
- assert.match(markup,/--bx:/);
- assert.match(markup,/role="status"/);
+test('orb has 156 individually positioned SVG dots and sparse animated accents',()=>{
+ const markup=renderOrb(false);
+ const dots=[...markup.matchAll(/<circle class="ai-orb-dot-v10(?: ai-orb-spark-v10)?" cx="([\d.]+)" cy="([\d.]+)" r="([\d.]+)"/g)];
+ assert.equal(dots.length,156);
+ const sparkles=(markup.match(/class="ai-orb-dot-v10 ai-orb-spark-v10"/g)||[]).length;
+ assert.ok(sparkles>=8&&sparkles<=16,'Keep accents sparse, not a flickering whole sphere');
+ assert.match(markup,/<svg[^>]+viewBox="0 0 144 144"/);
+ assert.match(markup,/class="ai-orb-rotate-v10"/);
  assert.match(markup,/Assistant ready/);
 });
 
-test('thinking, working, success and return to idle follow request lifecycle',()=>{
- const visual=harness();
- const ticket=visual.begin();
- assert.equal(visual.state(),'thinking');
- assert.equal(visual.nodes.label.textContent,'Assistant thinking');
- assert.ok([...visual.timers.values()].some(timer=>timer.delay===500));
- visual.tick(500);
- assert.equal(visual.state(),'working');
- assert.equal(visual.nodes.label.textContent,'Retrieving project information');
- visual.finish(ticket,true);
- assert.equal(visual.state(),'success');
- assert.equal(visual.nodes.label.textContent,'Assistant response ready');
- visual.tick(2200);
- assert.equal(visual.state(),'start');
- assert.equal(visual.timers.size,0);
+test('orb remains visibly spread even when transform and animation support is absent',()=>{
+ const markup=renderOrb(false);
+ const points=[...markup.matchAll(/<circle class="ai-orb-dot-v10(?: ai-orb-spark-v10)?" cx="([\d.]+)" cy="([\d.]+)" r="([\d.]+)"/g)];
+ assert.equal(points.length,156);
+ const x=points.map(m=>Number(m[1])),y=points.map(m=>Number(m[2]));
+ assert.ok(Math.max(...x)-Math.min(...x)>=90,'Orb must occupy at least 90 viewBox units horizontally');
+ assert.ok(Math.max(...y)-Math.min(...y)>=90,'Orb must occupy at least 90 viewBox units vertically');
+ assert.ok(points.every(m=>Number(m[3])>0),'All dots have an explicit visible radius');
+ assert.doesNotMatch(markup,/--cx:|--sx:|translate3d\(/);
 });
 
-test('failed request returns to idle and does not claim successful completion',()=>{
- const visual=harness();
- const ticket=visual.begin();
- visual.finish(ticket,false);
- assert.equal(visual.state(),'start');
- visual.tick(500);
- assert.equal(visual.state(),'start');
+test('continuous rotation and small individual pulses are CSS-only',()=>{
+ assert.match(css,/\.ai-orb-rotate-v10\{[^}]*animation:ai-orb-turn-v10 19s linear infinite/);
+ assert.match(css,/\.ai-orb-spark-v10\{[^}]*animation:ai-orb-pulse-v10 4\.4s/);
+ assert.match(css,/@keyframes ai-orb-turn-v10/);
+ assert.match(css,/@keyframes ai-orb-pulse-v10/);
+ assert.doesNotMatch(css,/\.ai-matrix-v9|@keyframes ai-v9-/);
 });
 
-test('clear-chat, logout and other cancellation invalidate stale completion callbacks',()=>{
- const visual=harness();
- const first=visual.begin();
- visual.cancel();
- assert.equal(visual.state(),'start');
- visual.finish(first,true);
- visual.tick(500);
- visual.tick(2200);
- assert.equal(visual.state(),'start');
- const second=visual.begin();
- assert.ok(second>first);
- visual.finish(second,true);
- assert.equal(visual.state(),'success');
- visual.cancel();
- visual.tick(2200);
- assert.equal(visual.state(),'start');
+test('reduced-motion preference leaves the full sphere visible without animation',()=>{
+ assert.match(css,/prefers-reduced-motion:reduce/);
+ assert.match(css,/\.ai-orb-rotate-v10,\.ai-orb-spark-v10\{[^}]*animation:none!important/);
+ const markup=renderOrb(false);
+ assert.match(markup,/class="ai-orb-dot-v10/);
 });
 
-test('frontend binds visual states to actual assistant request and resets',()=>{
+test('assistant network logic and stale-request protection remain unchanged',()=>{
+ assert.match(app,/if\(ticket!==aiRequestNonceV9\)return;/);
+ assert.match(app,/if\(ticket===aiRequestNonceV9\)\{chatBusyV4=false;render\(\);\}/);
  assert.match(app,/function logout\(refresh=true\)\{aiCancelV9\(\);/);
  assert.match(app,/if\(action==='clear'\)\{aiCancelV9\(\);/);
- assert.match(app,/chatBusyV4=true;const ticket=aiBeginV9\(\);render\(\);/);
- assert.match(app,/aiEndV9\(ticket,true\)/);
- assert.match(app,/aiEndV9\(ticket,false\)/);
- assert.match(app,/if\(ticket===aiRequestNonceV9\)\{chatBusyV4=false;render\(\);\}/);
- assert.match(app,/aiDotMatrixMarkupV9\(\)/);
- assert.doesNotMatch(app,/<div class="ai-orb-v4" aria-hidden="true">/);
+ assert.match(app,/const ticket=aiBeginV9\(\);render\(\);/);
+ assert.doesNotMatch(app,/aiEndV9|aiVisualSetV9|aiDotMatrixMarkupV9/);
 });
 
-test('all four animation states and reduced-motion preference exist',()=>{
- for(const name of ['start','thinking','working','success'])
-  assert.ok(css.includes('[data-state="'+name+'"]'),'Missing visual state '+name);
- for(const animation of ['ai-v9-bubble','ai-v9-ring-x','ai-v9-ring-y','ai-v9-ring-angled','ai-v9-success-drift','ai-v9-success-aura'])
-  assert.ok(css.includes(animation),'Missing animation '+animation);
- assert.match(css,/calc\(var\(--sx\) - var\(--cx\)\)/);
- assert.match(css,/prefers-reduced-motion:reduce/);
- assert.match(css,/animation:none!important/);
+test('busy state is announced accessibly without changing decorative animation',()=>{
+ assert.match(renderOrb(true),/Assistant retrieving a response/);
+ assert.match(renderOrb(false),/AI Assistant ready/);
+ assert.match(renderOrb(true),/role="status" aria-live="polite"/);
 });
