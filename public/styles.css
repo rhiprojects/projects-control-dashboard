@@ -350,3 +350,8 @@ svg.v5-track{display:block;width:100%}
  .mobile-menu.btn,.sidebar-close{display:inline-flex;min-height:44px}
  .sidebar-close{align-self:flex-end;margin-bottom:12px}
 }
+
+/* Project end metadata wraps on narrow screens without hiding actions. */
+.projectfoot{flex-wrap:wrap;gap:10px}
+.project-end-note{font-size:12px;line-height:1.45;color:var(--v6-muted);white-space:nowrap}
+@media(max-width:640px){.project-end-note{order:2;flex-basis:100%}.projectfoot .btn{margin-left:auto}}

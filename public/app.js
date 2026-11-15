@@ -97,7 +97,7 @@ function contractTotalLabel(currency){
  return recorded.length?fmt(recorded.reduce((sum,p)=>sum+p.contractValue,0)):'Not recorded';
 }
 const missing=(field)=>active().filter(p=>p[field]===null).length;
-function projectCard(p){return `<div class="card projectcard"><div class="projecttop"><div><div class="projectid">Project ${h(p.id)}</div><h3 class="projectname">${h(p.displayName||p.client||p.name)}</h3><p class="projectclient">${h(p.name)}</p></div><span class="pill ${p.status==='Active'?'green':'neutral'}">${h(p.status||'Not supplied')}</span></div><div class="projectstats"><span>Contract Value</span><strong>${h(moneyLabel(p.contractValue,p.contractCurrency))}</strong></div><div class="projectfoot"><span>Physical progress: <strong>${p.progress===null?'Not Recorded':h(p.progress)+'%'}</strong></span><button class="btn small" data-project="${h(p.id)}">Open Project</button></div></div>`}
+function projectCard(p){return `<div class="card projectcard"><div class="projecttop"><div><div class="projectid">Project ${h(p.id)}</div><h3 class="projectname">${h(p.displayName||p.client||p.name)}</h3><p class="projectclient">${h(p.name)}</p></div><span class="pill ${p.status==='Active'?'green':'neutral'}">${h(p.status||'Not supplied')}</span></div><div class="projectstats"><span>Contract Value</span><strong>${h(moneyLabel(p.contractValue,p.contractCurrency))}</strong></div><div class="projectfoot"><span>Physical progress: <strong>${p.progress===null?'Not Recorded':h(p.progress)+'%'}</strong></span><span class="project-end-note">End: ${h(projectEndShort(p))}</span><button class="btn small" data-project="${h(p.id)}">Open Project</button></div></div>`}
 function syncMobileNav(focus){
  const sidebar=$('#workspace-sidebar'),trigger=$('.mobile-menu');
  if(!sidebar||!trigger)return;
@@ -280,7 +280,40 @@ function categoryBar(amount,maximum){
  return `<svg class="v5-track" viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden="true" focusable="false"><rect width="${width}" height="10"></rect></svg>`;
 }
 const v5Rows=id=>(dashboardV5.budgetLines||[]).filter(x=>x.project_code===id&&String(x.period_start).startsWith('2027-'));
-const v7MonthlyBudget=id=>(dashboardV5.monthlyBudgets||[]).filter(x=>x.project_code===id&&String(x.period_start).startsWith('2027-')).sort((a,b)=>String(a.period_start).localeCompare(String(b.period_start)));
+const v7MonthlyBudget=id=>(dashboardV5?.monthlyBudgets||[]).filter(x=>x.project_code===id&&String(x.period_start).startsWith('2027-')).sort((a,b)=>String(a.period_start).localeCompare(String(b.period_start)));
+
+// Manager-entered finish dates control the project/budget period.
+// Otherwise use the last month with a positive approved 2027 budget.
+// Do not fabricate a contractual day when only the month is known.
+function projectEndMonth(p){
+ if(!p)return null;
+ const entered=p.forecastFinish||p.baselineFinish;
+ if(typeof entered==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(entered))return entered.slice(0,7);
+ const funded=v7MonthlyBudget(p.id).filter(x=>{const a=v5Number(x.baseline_amount);return a!==null&&a>0;})
+  .map(x=>String(x.period_start).slice(0,7)).sort();
+ return funded.length?funded[funded.length-1]:null;
+}
+function projectEndLabel(p){
+ const period=projectEndMonth(p);
+ if(!period)return 'Not recorded';
+ const [year,month]=period.split('-').map(Number);
+ const label=new Intl.DateTimeFormat('en-GB',{month:'long',timeZone:'UTC'})
+  .format(new Date(Date.UTC(year,month-1,1)))+' '+year;
+ return label+(p.forecastFinish?' (revised finish)':p.baselineFinish?' (planned finish)':' (2027 budget-derived; exact date not recorded)');
+}
+
+// Source reconciliation only: a duration mismatch must not silently rewrite budgets.
+function projectDurationWarning(p){
+ if(p?.forecastFinish||p?.baselineFinish||!Number.isInteger(p?.durationMonths))return '';
+ const funded=v7MonthlyBudget(p.id).filter(x=>Number(x.baseline_amount)>0)
+  .map(x=>String(x.period_start).slice(0,7)).sort();
+ if(!funded.length)return '';
+ const start=funded[0].split('-').map(Number),end=funded[funded.length-1].split('-').map(Number);
+ const span=(end[0]-start[0])*12+end[1]-start[1]+1;
+ return span===p.durationMonths?'':'Recorded duration '+p.durationMonths+' months differs from '+span+
+  ' calendar months of funded 2027 project budget ('+funded[0]+' to '+funded[funded.length-1]+'). Confirm the contractual end date; no budget values were changed.';
+}
+const projectEndShort=p=>projectEndLabel(p).split(' (')[0];
 const v7BudgetCurrency=id=>v7MonthlyBudget(id).find(x=>v5Number(x.baseline_amount)!==null&&Number(x.baseline_amount)!==0)?.currency||v7MonthlyBudget(id)[0]?.currency||null;
 const v7Total=(rows,key)=>{const valid=rows.filter(x=>v5Number(x[key])!==null);return valid.length?valid.reduce((n,x)=>n+Number(x[key]),0):null;};
 function v5Health(id,currency){
@@ -400,8 +433,16 @@ function v5FinancialPanel(p){
  const contractCurrency=p.contractCurrency;
  const allMonths=v7MonthlyBudget(p.id),currency=v7BudgetCurrency(p.id);
  const months=allMonths.filter(x=>x.currency===currency);
+ const endMonth=projectEndMonth(p);
+ const activeMonths=months.filter(x=>!endMonth||String(x.period_start).slice(0,7)<=endMonth);
+ const postEndMonths=months.filter(x=>endMonth&&String(x.period_start).slice(0,7)>endMonth);
+ const outsideManpower=v5Rows(p.id).filter(x=>endMonth&&String(x.period_start).slice(0,7)>endMonth&&/manpower/i.test(String(x.category))&&Number(x.baseline_amount)>0);
+ const postEndFunded=postEndMonths.filter(x=>Number(x.baseline_amount)>0||Number(x.current_amount)>0);
+ const manpowerLines=v5Rows(p.id).filter(x=>/^manpower$/i.test(String(x.category)));
+ const personnelInCogs=v5Rows(p.id).some(x=>/cogs.*personnel/i.test(String(x.category))&&Number(x.baseline_amount)>0);
+ const confirmedZeroManpower=p.id==='818.01'&&personnelInCogs&&manpowerLines.length>0&&manpowerLines.every(x=>v5Number(x.baseline_amount)===0);
  const approved=v7Total(months,'baseline_amount'),working=v7Total(months,'current_amount');
- const included=new Set(months.filter(x=>v5Number(x.baseline_amount)!==null&&Number(x.baseline_amount)!==0).map(x=>String(x.period_start).slice(0,7)));
+ const included=new Set(activeMonths.filter(x=>v5Number(x.baseline_amount)!==null&&Number(x.baseline_amount)!==0).map(x=>String(x.period_start).slice(0,7)));
  const lines=v5Rows(p.id).filter(x=>x.currency===currency&&included.has(String(x.period_start).slice(0,7)));
  const valid=lines.filter(x=>v5Number(x.baseline_amount)!==null);
  const categories=[...new Set(valid.map(x=>x.category))];
@@ -415,13 +456,21 @@ function v5FinancialPanel(p){
  const categoriesAvailable=valid.length>0&&categoriesReconcile;
  const note=categoriesAvailable?'Category values reconcile with approved monthly budgets for the included scheduled months. These are budgeted reference costs.':'Category comparisons are withheld because the reference lines do not establish a reconciled breakdown of the scheduled monthly budget. The approved and working monthly budgets remain available below.';
  return '<section class="card panel v4-section v5-financial" aria-label="Financial analysis"><h2 class="paneltitle">Project Financial Analysis</h2><p class="v5-context">Original Contract Value is contractual and has no annual reporting period here. Approved and Working Project Budgets cover the available 2027 monthly records and include manpower and other costs. These measures retain their own currencies and do not establish actual revenue, incurred expenditure, or profit.</p>'+
+ '<p class="v5-context">Current project and budget end: '+h(projectEndLabel(p))+'. An extension does not automatically add budget amounts.</p>'+
+ (projectDurationWarning(p)?'<p class="v5-context" role="status">'+h(projectDurationWarning(p))+'</p>':'')+
+ (postEndMonths.length?'<p class="v5-context">'+postEndMonths.length+' post-end monthly rows are retained in the budget register for audit but omitted from the active-period chart and table.</p>':'')+
+ (postEndFunded.length?'<p class="v5-context" role="status">Financial reconciliation required: '+postEndFunded.length+' funded monthly record(s) fall after the revised project end. Recorded annual budget totals remain unchanged pending review.</p>':'')+
+ (outsideManpower.length?'<p class="v5-context" role="status">Review required: '+outsideManpower.map(x=>String(x.period_start).slice(0,7)+' Manpower reference '+v5Money(v5Number(x.baseline_amount),x.currency)).join('; ')+' falls after the project end. This entry has not been removed or reassigned.</p>':'')+
+ (confirmedZeroManpower?'<p class="v5-context">Project 818.01: separate Manpower is correctly zero because personnel costs are included under COGS - Personnel Costs. Do not double-count personnel.</p>':'')+
  '<div class="v5-metrics"><div><small>'+moneyHeading('Original Contract Value',contractCurrency)+'</small><strong>'+v5Money(p.contractValue,contractCurrency)+'</strong><p class="financial-note">Contractual amount</p></div><div><small>'+moneyHeading('2027 Approved Project Budget',currency)+'</small><strong>'+v5Money(approved,currency)+'</strong><p class="financial-note">Approved forecast · 2027</p></div><div><small>'+moneyHeading('2027 Working Project Budget',currency)+'</small><strong>'+v5Money(working,currency)+'</strong><p class="financial-note">Working forecast · 2027</p></div><div><small>'+moneyHeading('Recorded P&L Margin',contractCurrency)+'</small><strong>'+v5Money(health?.margin??null,contractCurrency)+'</strong><p class="financial-note">Available recorded periods</p></div></div><p class="financial-note">'+h(marginContext(p))+'</p>'+
- v7Chart('2027 Monthly Project Budget — Approved vs Working'+(currency?' · '+currency:''),'bar',months.map(x=>String(x.period_start).slice(0,7)),[{name:'Approved Budget',values:months.map(x=>v5Number(x.baseline_amount))},{name:'Working Budget',values:months.map(x=>v5Number(x.current_amount))}],currency,{financial:true})+
+ v7Chart('2027 Monthly Project Budget — Approved vs Working'+(currency?' · '+currency:''),'bar',activeMonths.map(x=>String(x.period_start).slice(0,7)),[{name:'Approved Budget',values:activeMonths.map(x=>v5Number(x.baseline_amount))},{name:'Working Budget',values:activeMonths.map(x=>v5Number(x.current_amount))}],currency,{financial:true})+
  (categoriesAvailable?v7Chart('2027 Scheduled Costs By Category'+(currency?' · '+currency:''),'bar',totals.map(x=>x.category),[{name:'Scheduled Costs',values:totals.map(x=>x.amount)}],currency,{financial:true}):'')+
  '<p class="v5-context">'+h(note)+'</p>'+
  '<div class="v5-analysis-grid"><div><h3>Scheduled Costs By Category</h3><p class="v5-context">Budgeted reference costs for included scheduled months. Bar lengths are relative to the largest category; exact amounts are labeled.</p>'+
  (categoriesAvailable?totals.map(x=>'<div class="v5-bar-row"><div><span>'+h(x.category)+'</span><strong>'+fmt(x.amount)+' '+h(currency)+'</strong></div>'+categoryBar(x.amount,maximum)+'</div>').join(''):'<p>Category amounts are withheld pending reconciliation with the scheduled monthly budget.</p>')+
- '</div><div><h3>2027 Monthly Project Budget</h3>'+(months.length?'<div class="table-wrap"><table><thead><tr><th>Month</th><th>Approved</th><th>Working</th></tr></thead><tbody>'+months.map(x=>'<tr><td>'+h(String(x.period_start).slice(0,7))+'</td><td>'+v5Money(v5Number(x.baseline_amount),currency)+'</td><td>'+v5Money(v5Number(x.current_amount),currency)+'</td></tr>').join('')+'</tbody></table></div>':'<p>No 2027 monthly project budget recorded.</p>')+'</div></div></section>';
+ '</div><div><h3>2027 Monthly Project Budget</h3>'+(activeMonths.length?'<div class="table-wrap"><table><thead><tr><th>Month</th><th>Approved</th><th>Working</th></tr></thead><tbody>'+activeMonths.map(x=>'<tr><td>'+h(String(x.period_start).slice(0,7))+'</td><td>'+v5Money(v5Number(x.baseline_amount),currency)+'</td><td>'+v5Money(v5Number(x.current_amount),currency)+'</td></tr>').join('')+'</tbody></table></div>':'<p>No 2027 monthly project budget recorded.</p>')+
+ (postEndMonths.length?'<details><summary>Post-end recorded months ('+postEndMonths.length+') — audit only</summary><div class="table-wrap"><table><thead><tr><th>Month</th><th>Approved</th><th>Working</th></tr></thead><tbody>'+
+ postEndMonths.map(x=>'<tr><th scope="row">'+h(String(x.period_start).slice(0,7))+'</th><td>'+v5Money(v5Number(x.baseline_amount),currency)+'</td><td>'+v5Money(v5Number(x.current_amount),currency)+'</td></tr>').join('')+'</tbody></table></div></details>':'')+'</div></div></section>';
 }
 function v5TeamPanel(){
  if(!lead())return '';
@@ -466,13 +515,13 @@ function v5Portfolio(){
   const currency=v7BudgetCurrency(p.id);
   const months=v7MonthlyBudget(p.id).filter(x=>x.currency===currency);
   const total=v7Total(months,'baseline_amount'),working=v7Total(months,'current_amount');
-  return '<div class="v5-portfolio-item"><div><strong>'+h(p.id)+' · '+h(p.displayName||p.client)+'</strong>'+v5Arrow(p)+'</div><small>'+moneyHeading('2027 Approved Project Budget',currency)+'</small><strong>'+v5Money(total,currency)+'</strong><small>'+moneyHeading('2027 Working Project Budget',currency)+'</small><strong>'+v5Money(working,currency)+'</strong><small>'+moneyHeading('Original Contract Value',p.contractCurrency)+'</small><strong>'+v5Money(p.contractValue,p.contractCurrency)+'</strong><button class="btn small" data-project="'+h(p.id)+'">View Financial Analysis</button></div>';
+  return '<div class="v5-portfolio-item"><div><strong>'+h(p.id)+' · '+h(p.displayName||p.client)+'</strong>'+v5Arrow(p)+'</div><small>'+moneyHeading('2027 Approved Project Budget',currency)+'</small><strong>'+v5Money(total,currency)+'</strong><small>'+moneyHeading('2027 Working Project Budget',currency)+'</small><strong>'+v5Money(working,currency)+'</strong><small>'+moneyHeading('Original Contract Value',p.contractCurrency)+'</small><strong>'+v5Money(p.contractValue,p.contractCurrency)+'</strong><button class="btn small" data-project="'+h(p.id)+'">View Financial Analysis</button><small>End: '+h(projectEndShort(p))+'</small></div>';
  }).join('')+'</div>'+(!active().length?'<p>No active project records available.</p>':'')+'</section>';
 }
 
 function overviewV4(){
  return heading("Overview",me.role==="head_of_projects"?cairoGreeting(me.displayName):`Welcome, ${me.displayName.split(' ')[0]}`,"Your projects at a glance.",'<button class="btn" data-action="reload">↻ Refresh</button>')+
- `<div class="cards">${kpi('Active Projects',String(active().length),'Active Projects','','projects')}${kpi('Original Contract Value · EGP',contractTotalLabel('EGP'),'Active projects · contractual amounts','blue','contract')}${kpi('Original Contract Value · USD',contractTotalLabel('USD'),'Active projects · contractual amounts','','money')}${kpi('Progress Not Recorded',String(missing('progress')),'Active Projects','amber','progress')}</div><div class="grid-two v4-grid"><section class="card panel"><div class="panelhead"><h2 class="paneltitle">Your Active Projects</h2><button class="btn small" data-page="projects">View all</button></div><ul class="list-naked">${active().map(p=>`<li><div><button class="plink" data-project="${h(p.id)}">${h(p.id)} · ${h(p.displayName||p.client)}</button><span class="subline">${h(p.status)} · ${h(p.contractCurrency)}</span></div>${dashboardV5?v5Arrow(p):''}</li>`).join('')}</ul></section>${aiPanelV4()}</div>${dashboardV5?v5TeamPanel()+v5Portfolio():dataStatus('Dashboard data',dashboardError,'retry-dashboard')}`;
+ `<div class="cards">${kpi('Active Projects',String(active().length),'Active Projects','','projects')}${kpi('Original Contract Value · EGP',contractTotalLabel('EGP'),'Active projects · contractual amounts','blue','contract')}${kpi('Original Contract Value · USD',contractTotalLabel('USD'),'Active projects · contractual amounts','','money')}${kpi('Progress Not Recorded',String(missing('progress')),'Active Projects','amber','progress')}</div><div class="grid-two v4-grid"><section class="card panel"><div class="panelhead"><h2 class="paneltitle">Your Active Projects</h2><button class="btn small" data-page="projects">View all</button></div><ul class="list-naked">${active().map(p=>`<li><div><button class="plink" data-project="${h(p.id)}">${h(p.id)} · ${h(p.displayName||p.client)}</button><span class="subline">${h(p.status)} · ${h(p.contractCurrency)} · End: ${h(projectEndShort(p))}</span></div>${dashboardV5?v5Arrow(p):''}</li>`).join('')}</ul></section>${aiPanelV4()}</div>${dashboardV5?v5TeamPanel()+v5Portfolio():dataStatus('Dashboard data',dashboardError,'retry-dashboard')}`;
 }
 
 function createV4(){
@@ -487,7 +536,7 @@ function projectViewV4(){
  const owner=p.internalOwnerId===me.userId?me.displayName:!p.internalOwnerId?'Not assigned':
    d?.people?.find(u=>u.id===p.internalOwnerId)?.display_name||(d||detailsError?'Unavailable':'Loading…');
  return heading('Projects',`${h(p.id)} · ${h(p.displayName||p.client)}`,h(p.scope||''),`<button class="btn" data-v4="back">Back</button><button class="btn primary" data-v4="edit"${!d?' disabled':''}>Edit Project</button>`)+
- `<section class="card panel v4-section"><h2 class="paneltitle">Project Information</h2><div class="v4-facts">${line('Internal owner',owner)}${line('Client / contracting organization',p.client)}${line('Contract value',moneyLabel(p.contractValue,p.contractCurrency))}${line('Physical progress',p.progress===null?'Not recorded':p.progress+'%')}${line('Location',p.location)}${line('Start date',p.startDate)}${line('Planned finish',p.baselineFinish)}${line('Forecast finish',p.forecastFinish)}${line('Duration (months)',p.durationMonths)}</div></section>
+ `<section class="card panel v4-section"><h2 class="paneltitle">Project Information</h2><div class="v4-facts">${line('Internal owner',owner)}${line('Client / contracting organization',p.client)}${line('Contract value',moneyLabel(p.contractValue,p.contractCurrency))}${line('Physical progress',p.progress===null?'Not recorded':p.progress+'%')}${line('Location',p.location)}${line('Start date',p.startDate)}${line('Current project / budget end',projectEndLabel(p))}${projectDurationWarning(p)?line('Schedule verification',projectDurationWarning(p)):''}${line('Planned finish',p.baselineFinish)}${line('Forecast finish',p.forecastFinish)}${line('Duration (months)',p.durationMonths)}</div></section>
  ${d?projectTeamV4(d):dataStatus('Project details',detailsError,'retry-details')}
  ${dashboardV5?v5FinancialPanel(p):dataStatus('Project financial analysis',dashboardError,'retry-dashboard')}
  ${d?projectRecordsV4(d):''}`;
@@ -517,25 +566,25 @@ function renderSuggestedV4(proposed){
 
 function editProjectV4(){
  const p=fromProject(chosen);if(!p)return projectListV4();
- const data=[['client','Client','text',p.client],['scope','Project scope','text',p.scope],['contractValue','Contract value','number',p.contractValue],['progress','Physical progress (%)','number',p.progress],['location','Location','text',p.location],['startDate','Planned start','date',p.startDate],['baselineFinish','Planned finish','date',p.baselineFinish],['forecastFinish','Forecast finish','date',p.forecastFinish],['durationMonths','Duration months','number',p.durationMonths]];
- return heading('Projects','Edit Project',h(p.id),'<button class="btn" data-v4="cancel-edit">Cancel</button>')+`<section class="card panel"><form id="edit-v4"><div class="v4-formgrid">${data.map(([key,label,type,value])=>`<label>${label}<input name="${key}" type="${type}" ${type==='number'?'step="0.01"':''} value="${h(String(value??''))}"></label>`).join('')}${lead()?`<label>Internal project owner<select name="internalOwnerId"><option value="">Not assigned</option>${(detailsV4?.people||[]).map(u=>`<option value="${h(u.id)}" ${u.id===p.internalOwnerId?'selected':''}>${h(u.display_name)}</option>`).join('')}</select></label>`:''}<label>Status<select name="status">${['Active','On Hold','Completed','Cancelled'].map(s=>`<option ${s===p.status?'selected':''}>${s}</option>`).join('')}</select></label></div><div class="form-actions"><button class="btn primary">Save changes</button></div></form></section>`;
+ const data=[['client','Client','text',p.client],['scope','Project scope','text',p.scope],['contractValue','Contract value','number',p.contractValue],['progress','Physical progress (%)','number',p.progress],['location','Location','text',p.location],['startDate','Planned start','date',p.startDate],['baselineFinish','Original planned finish','date',p.baselineFinish],['forecastFinish','Revised project end (manager)','date',p.forecastFinish],['durationMonths','Duration months','number',p.durationMonths]];
+ return heading('Projects','Edit Project',h(p.id),'<button class="btn" data-v4="cancel-edit">Cancel</button>')+`<section class="card panel"><form id="edit-v4"><div class="v4-formgrid">${data.map(([key,label,type,value])=>`<label>${label}<input name="${key}" type="${type}" ${type==='number'?'step="0.01"':''} ${!lead()&&['baselineFinish','forecastFinish'].includes(key)?'disabled':''} value="${h(String(value??''))}"></label>`).join('')}${lead()?`<label>Internal project owner<select name="internalOwnerId"><option value="">Not assigned</option>${(detailsV4?.people||[]).map(u=>`<option value="${h(u.id)}" ${u.id===p.internalOwnerId?'selected':''}>${h(u.display_name)}</option>`).join('')}</select></label>`:''}<label>Status<select name="status">${['Active','On Hold','Completed','Cancelled'].map(s=>`<option ${s===p.status?'selected':''}>${s}</option>`).join('')}</select></label></div><div class="form-actions"><button class="btn primary">Save changes</button></div></form></section>`;
 }
 
 function financePageV4(){
- return heading('Financials','Project Financials','Review 2027 approved project budgets by budget currency. Contract values are listed separately in their original currencies.')+(dashboardV5?v5Portfolio():dataStatus('Portfolio budget data',dashboardError,'retry-dashboard'))+`<div class="card tablecard"><div class="table-wrap"><table><thead><tr><th>Project</th><th>Client</th><th>Contract Value</th><th>Progress</th><th></th></tr></thead><tbody>${projects.map(p=>`<tr><td>${h(p.id)}</td><td>${h(p.client)}</td><td>${h(moneyLabel(p.contractValue,p.contractCurrency))}</td><td>${p.progress===null?'—':p.progress+'%'}</td><td><button class="btn small" data-project="${h(p.id)}">Open</button></td></tr>`).join('')}</tbody></table></div></div>`;
+ return heading('Financials','Project Financials','Review 2027 approved project budgets by budget currency. Contract values are listed separately in their original currencies.')+(dashboardV5?v5Portfolio():dataStatus('Portfolio budget data',dashboardError,'retry-dashboard'))+`<div class="card tablecard"><div class="table-wrap"><table><thead><tr><th>Project</th><th>Client</th><th>Contract Value</th><th>Current project / budget end</th><th>Progress</th><th></th></tr></thead><tbody>${projects.map(p=>`<tr><td>${h(p.id)}</td><td>${h(p.client)}</td><td>${h(moneyLabel(p.contractValue,p.contractCurrency))}</td><td title="${h(projectEndLabel(p))}">${h(projectEndShort(p))}</td><td>${p.progress===null?'—':p.progress+'%'}</td><td><button class="btn small" data-project="${h(p.id)}">Open</button></td></tr>`).join('')}</tbody></table></div></div>`;
 }
 
 function milestonesPageV4(){
  const recorded=projects.filter(p=>v5Number(p.progress)!==null);
  const progressChart=v7Chart('Recorded Physical Progress By Project','bar',recorded.map(p=>p.id),[{name:'Physical Progress (%)',values:recorded.map(p=>Number(p.progress))}],'%');
- return progressChart+heading('Milestones','Project Schedules','Dates and progress for authorized projects.')+`<div class="card tablecard"><div class="table-wrap"><table><thead><tr><th>Project</th><th>Client</th><th>Start</th><th>Planned finish</th><th>Forecast finish</th><th>Progress</th></tr></thead><tbody>${projects.map(p=>`<tr><td><button class="plink" data-project="${h(p.id)}">${h(p.id)}</button></td><td>${h(p.client)}</td><td>${h(p.startDate||'—')}</td><td>${h(p.baselineFinish||'—')}</td><td>${h(p.forecastFinish||'—')}</td><td>${p.progress===null?'—':p.progress+'%'}</td></tr>`).join('')}</tbody></table></div></div>`;
+ return progressChart+heading('Milestones','Project Schedules','Dates and progress for authorized projects.')+`<div class="card tablecard"><div class="table-wrap"><table><thead><tr><th>Project</th><th>Client</th><th>Start</th><th>Current project / budget end</th><th>Planned finish</th><th>Forecast finish</th><th>Progress</th></tr></thead><tbody>${projects.map(p=>`<tr><td><button class="plink" data-project="${h(p.id)}">${h(p.id)}</button></td><td>${h(p.client)}</td><td>${h(p.startDate||'—')}</td><td title="${h(projectEndLabel(p))}">${h(projectEndShort(p))}</td><td>${h(p.baselineFinish||'—')}</td><td>${h(p.forecastFinish||'—')}</td><td>${p.progress===null?'—':p.progress+'%'}</td></tr>`).join('')}</tbody></table></div></div>`;
 }
 
 function reportPageV4(){
  const selected=reportCode==='all'?projects:projects.filter(p=>p.id===reportCode);
  const recorded=selected.filter(p=>v5Number(p.progress)!==null);
  const chart=v7Chart('Recorded Physical Progress · Selected Projects','bar',recorded.map(p=>p.id),[{name:'Physical Progress (%)',values:recorded.map(p=>Number(p.progress))}],'%');
- return chart+heading('Reports','Project Report','Print the selected project records.','<button class="btn" data-action="print">Print / Save PDF</button>')+`<section class="card panel"><select id="report-code"><option value="all">All accessible projects</option>${projects.map(p=>`<option ${reportCode===p.id?'selected':''} value="${h(p.id)}">${h(p.id)} · ${h(p.displayName||p.client)}</option>`).join('')}</select><div class="table-wrap"><table><thead><tr><th>Code</th><th>Client</th><th>Contract Value</th><th>Progress</th></tr></thead><tbody>${selected.map(p=>`<tr><td>${h(p.id)}</td><td>${h(p.client)}</td><td>${h(moneyLabel(p.contractValue,p.contractCurrency))}</td><td>${p.progress===null?'—':p.progress+'%'}</td></tr>`).join('')}</tbody></table></div></section>`;
+ return chart+heading('Reports','Project Report','Print the selected project records.','<button class="btn" data-action="print">Print / Save PDF</button>')+`<section class="card panel"><select id="report-code"><option value="all">All accessible projects</option>${projects.map(p=>`<option ${reportCode===p.id?'selected':''} value="${h(p.id)}">${h(p.id)} · ${h(p.displayName||p.client)}</option>`).join('')}</select><div class="table-wrap"><table><thead><tr><th>Code</th><th>Client</th><th>Contract Value</th><th>Current project / budget end</th><th>Progress</th></tr></thead><tbody>${selected.map(p=>`<tr><td>${h(p.id)}</td><td>${h(p.client)}</td><td>${h(moneyLabel(p.contractValue,p.contractCurrency))}</td><td title="${h(projectEndLabel(p))}">${h(projectEndShort(p))}</td><td>${p.progress===null?'—':p.progress+'%'}</td></tr>`).join('')}</tbody></table></div></section>`;
 }
 
 function projectListV4(){
@@ -721,6 +770,7 @@ ROOT.addEventListener('submit',async event=>{
    progress:str('progress')===''?null:Number(str('progress')),location:str('location')||null,
    startDate:str('startDate')||null,baselineFinish:str('baselineFinish')||null,
    forecastFinish:str('forecastFinish')||null,durationMonths:str('durationMonths')===''?null:Number(str('durationMonths')),status:str('status')};
+  if(!lead()){delete changes.baselineFinish;delete changes.forecastFinish;}
   if(lead())changes.internalOwnerId=str('internalOwnerId')||null;
   try{const r=await api('/api/projects/'+encodeURIComponent(chosen),{method:'PUT',body:{lastEdited:current.lastEdited,changes}});
    const i=projects.findIndex(p=>p.id===chosen);if(i>=0)projects[i]=r.project;
