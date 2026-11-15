@@ -625,17 +625,17 @@ function dashboardFinancialV12(){
  const currencies=[...new Set(entries.map(x=>x.currency).filter(Boolean))];
  const colors=['#163F70','#2879BF','#62AAF0','#0F9FBA','#76B8D9','#8A9DBB','#425B81','#B9CFDF'];
  const budgetCharts=currencies.map(currency=>{
-  const rows=entries.filter(x=>x.currency===currency&&x.approved!==null);
+  const rows=entries.filter(x=>x.currency===currency&&(x.approved!==null||x.working!==null));
   const positive=rows.filter(x=>x.approved>0);
   const total=positive.reduce((sum,x)=>sum+x.approved,0);
   const ring=total>0?'<div class="dashboard-donut-wrapper">'+
-   '<div class="v7-chart dashboard-donut" role="img" aria-label="'+h('2027 approved budget distribution in '+currency)+'" data-chart="'+h(JSON.stringify({kind:'donut',currency,labels:positive.map(x=>x.p.id),values:positive.map(x=>x.approved)}))+'"></div>'+
+   '<div class="v7-chart dashboard-donut" role="img" aria-label="'+h('2027 approved budget distribution in '+currency)+'" data-chart="'+h(JSON.stringify({kind:'donut',currency,labels:rows.map(x=>x.p.id),values:rows.map(x=>x.approved>0?x.approved:0)}))+'"></div>'+
    '<div class="dashboard-donut-center" aria-hidden="true"><strong>'+h(fmt(total))+'</strong><small>'+h(currency)+' total</small></div></div>':
    '<p>No positive approved amounts recorded for a distribution chart.</p>';
   const legend=rows.map((x,i)=>'<li><span class="dashboard-legend-swatch" style="background:'+colors[i%colors.length]+'"></span>'+
    '<span class="dashboard-legend-project">'+h(x.p.id+' · '+(x.p.displayName||x.p.client))+'</span>'+
    '<strong>'+h(moneyLabel(x.approved,currency))+'</strong>'+
-   '<small>'+(total>0?h((x.approved/total*100).toFixed(1))+'%':'—')+'</small></li>').join('');
+   '<small>'+(total>0&&x.approved!==null&&x.approved>=0?h((x.approved/total*100).toFixed(1))+'%':'—')+'</small></li>').join('');
   const bar=rows.length?v7Chart('Approved vs. Working Budget · '+currency,'bar',rows.map(x=>x.p.id),[
    {name:'Approved Budget',values:rows.map(x=>x.approved)},
    {name:'Working Budget',values:rows.map(x=>x.working)}
