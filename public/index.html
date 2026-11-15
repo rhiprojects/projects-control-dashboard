@@ -1,5 +1,14 @@
 <!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>Projects Control | Management Portal</title><link rel="stylesheet" href="/styles.css"><link rel="icon" href="/favicon.svg" type="image/svg+xml"></head>
-<body><div id="app" aria-live="polite"><div class="login-wrap"><div class="login-card"><div class="login-logo"><span class="brandmark">P</span><span class="brandname">Projects Control<small>SECURE PORTAL</small></span></div><p class="login-desc">Projects Control</p></div></div></div><script type="module" src="/app.js"></script></body>
+<body><div id="app"><div class="login-wrap"><div class="login-card"><div class="login-logo"><span class="brandmark">P</span><span class="brandname">Projects Control<small>SECURE PORTAL</small></span></div><p class="login-desc" role="status">Loading Projects Control…</p></div></div></div>
+<dialog id="discard-project-draft" class="card panel" aria-labelledby="discard-project-title" aria-describedby="discard-project-description">
+ <h2 id="discard-project-title" class="paneltitle">Discard unsaved project information?</h2>
+ <p id="discard-project-description">Leaving this form will clear the entered information and selected files.</p>
+ <form method="dialog" class="form-actions">
+  <button class="btn primary" value="discard">Leave without saving</button>
+  <button class="btn" value="stay" autofocus>Continue editing</button>
+ </form>
+</dialog>
+<script type="module" src="/app.js"></script></body>
 </html>
