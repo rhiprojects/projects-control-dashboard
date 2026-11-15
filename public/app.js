@@ -467,7 +467,9 @@ function v5FinancialPanel(p){
  '<p class="v5-context">'+h(note)+'</p>'+
  '<div class="v5-analysis-grid"><div><h3>Scheduled Costs By Category</h3><p class="v5-context">Budgeted reference costs for included scheduled months. Bar lengths are relative to the largest category; exact amounts are labeled.</p>'+
  (categoriesAvailable?totals.map(x=>'<div class="v5-bar-row"><div><span>'+h(x.category)+'</span><strong>'+fmt(x.amount)+' '+h(currency)+'</strong></div>'+categoryBar(x.amount,maximum)+'</div>').join(''):'<p>Category amounts are withheld pending reconciliation with the scheduled monthly budget.</p>')+
- '</div><div><h3>2027 Monthly Project Budget</h3>'+(activeMonths.length?'<div class="table-wrap"><table><thead><tr><th>Month</th><th>Approved</th><th>Working</th></tr></thead><tbody>'+activeMonths.map(x=>'<tr><td>'+h(String(x.period_start).slice(0,7))+'</td><td>'+v5Money(v5Number(x.baseline_amount),currency)+'</td><td>'+v5Money(v5Number(x.current_amount),currency)+'</td></tr>').join('')+'</tbody></table></div>':'<p>No 2027 monthly project budget recorded.</p>')+'</div></div></section>';
+ '</div><div><h3>2027 Monthly Project Budget</h3>'+(activeMonths.length?'<div class="table-wrap"><table><thead><tr><th>Month</th><th>Approved</th><th>Working</th></tr></thead><tbody>'+activeMonths.map(x=>'<tr><td>'+h(String(x.period_start).slice(0,7))+'</td><td>'+v5Money(v5Number(x.baseline_amount),currency)+'</td><td>'+v5Money(v5Number(x.current_amount),currency)+'</td></tr>').join('')+'</tbody></table></div>':'<p>No 2027 monthly project budget recorded.</p>')+
+ (postEndMonths.length?'<details><summary>Post-end recorded months ('+postEndMonths.length+') — audit only</summary><div class="table-wrap"><table><thead><tr><th>Month</th><th>Approved</th><th>Working</th></tr></thead><tbody>'+
+ postEndMonths.map(x=>'<tr><th scope="row">'+h(String(x.period_start).slice(0,7))+'</th><td>'+v5Money(v5Number(x.baseline_amount),currency)+'</td><td>'+v5Money(v5Number(x.current_amount),currency)+'</td></tr>').join('')+'</tbody></table></div></details>':'')+'</div></div></section>';
 }
 function v5TeamPanel(){
  if(!lead())return '';
