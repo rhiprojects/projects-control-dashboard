@@ -950,7 +950,8 @@ html,body,.app,.main,.content{background:#FFFFFF}
  .ai-input-v4 input{font-size:16px;min-height:44px;min-width:0}
  .ai-topics-v4 button,.ai-menu-v4{min-height:44px}
  .ai-chat-v4 .ai-message p{overflow-wrap:anywhere}
- .btn,.btn.small,.portal-toolbar button,.projectfoot .btn{min-height:44px}
+ .btn,.portal-toolbar button,.projectfoot .btn{min-height:44px}
+ .btn.small{min-height:44px}
  .form-actions .btn{min-height:44px}
  .v4-formgrid input,.v4-formgrid select,.v4-formgrid textarea,
  .form-grid input,.form-grid select,.form-grid textarea,
