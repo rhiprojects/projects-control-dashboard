@@ -412,3 +412,69 @@ svg.v5-track{display:block;width:100%}
 @media(max-width:440px){
  .v4-project-top .v4-project-info .v4-facts{grid-template-columns:1fr}
 }
+
+.portal-toolbar{display:flex;align-items:end;gap:14px;flex-wrap:wrap;margin-bottom:12px}
+.portal-control{display:flex;flex-direction:column;gap:6px;min-width:0;font-size:13px;font-weight:650}
+.portal-toolbar .portal-control:first-child{flex:1 1 260px;max-width:420px}
+.portal-control input,.portal-control select{min-height:40px;width:100%;min-width:0;border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.result-count,.portal-help,.report-scope{color:var(--muted);font-size:12px;line-height:1.5}
+.result-count{margin:0 0 10px}
+.empty-state p{margin:0 0 12px}
+.projectcard{display:flex;flex-direction:column;min-height:0}
+.projectcard .projecttop>div{min-width:0;overflow-wrap:anywhere}
+.projectcard .projectclient{margin:6px 0 0;line-height:1.5}
+.projectcard .projectstats{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(125px,100%),1fr));gap:12px;margin:18px 0 12px}
+.projectcard .projectstats>div{min-width:0}
+.projectcard .projectstats dd{margin:4px 0 0;color:var(--ink);font-weight:650;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.projectcard .projectfoot{margin-top:auto;justify-content:flex-end}
+
+.project-form-group{min-width:0;margin:0;padding:14px 0 4px;border:0;border-bottom:1px solid var(--line)}
+.project-form-group legend{padding:0;font-size:15px;font-weight:700}
+.project-form-group .v4-formgrid{margin:0 0 14px}
+.project-form-group+.project-form-group{margin-top:20px}
+.project-form-group label{min-width:0}
+.project-form-group input,.project-form-group select{width:100%}
+.project-form-group textarea{width:100%;min-width:0;resize:vertical;border:1px solid var(--line);border-radius:9px;padding:11px;background:var(--portal-canvas);color:var(--ink);line-height:1.5}
+.project-form-group label:has(textarea){grid-column:1 / -1}
+.project-form .required-label{font-size:11px;font-weight:600}
+.portal-form-error,.portal-form-status{font-size:13px;line-height:1.5;margin:0 0 12px}
+.portal-form-error{padding:10px 12px;border:1px solid var(--line);border-left:4px solid var(--portal-ink);background:var(--portal-panel);border-radius:8px}
+.portal-form-status:empty{display:none}
+.v4-side-upload .portal-form-status,.v4-side-upload .portal-form-error{flex-basis:100%;margin:0}
+
+.document-list,.assigned-members{list-style:none;margin:0;padding:0}
+.document-actions{display:flex;flex-wrap:wrap;gap:6px}
+.document-list .v4-file{align-items:center}
+.v4-project-side .v4-side-upload input[type=file]{flex:0 1 auto;width:100%}
+.assigned-members{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.assigned-members li{padding:4px 8px;border:1px solid var(--line);border-radius:8px;font-size:12px;overflow-wrap:anywhere;min-width:0}
+.project-form input[type="file"]::file-selector-button,.v4-side-upload input[type="file"]::file-selector-button{margin-right:8px;padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--portal-panel);color:var(--ink);font:inherit;cursor:pointer}
+.detected-fields{margin:10px 0;display:grid;gap:6px}
+.detected-fields>div{border:1px solid var(--line);border-radius:8px;padding:8px 10px;overflow-wrap:anywhere}
+.detected-fields dt{font-size:12px;font-weight:650}
+.detected-fields dd{margin:2px 0 0;font-size:13px}
+.detected-fields dd.portal-help{font-size:12px}
+.document-conflicts{padding-inline-start:18px;font-size:13px;line-height:1.5}
+.document-conflicts li+li{margin-top:5px}
+
+.portal-section-title{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.portal-table{max-width:100%;overflow-x:auto}
+.portal-table:focus-visible{outline:2px solid var(--portal-ink);outline-offset:-2px}
+.portal-table td,.portal-table th{padding:12px 16px}
+.portal-table td:nth-child(2){min-width:150px;white-space:normal;overflow-wrap:anywhere}
+.portal-table .numeric-cell{text-align:right;font-variant-numeric:tabular-nums}
+@media(max-width:560px){
+ .portal-toolbar .portal-control,.portal-toolbar .portal-control:first-child{flex:1 1 100%;max-width:none}
+ .portal-table td,.portal-table th{padding:9px 12px}
+}
+
+/* Edit-project save feedback stays beside Save, not at the top of the page. */
+.edit-save-actions{align-items:center;flex-wrap:wrap;gap:10px}
+.edit-save-feedback{min-width:0;flex:1 1 260px}
+.edit-save-feedback .edit-save-error{color:#a61b1b;background:#fff3f3;border:1px solid #e9a1a1;border-left:4px solid #bd2222;font-weight:600;margin:0;padding:8px 12px}
+.edit-save-feedback .portal-form-status{margin:0}
+@media(max-width:560px){.edit-save-feedback{width:100%;flex:1 1 auto}}
+
+/* Financial updates: keep the failure beside its own Save control. */
+.budget-save-feedback{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:120px}
+.budget-save-error:not([hidden]){display:inline-block;color:#a61b1b;background:#fff3f3;border:1px solid #e9a1a1;border-left:3px solid #bd2222;border-radius:6px;padding:7px 9px;font-size:12px;font-weight:600;line-height:1.4;max-width:280px}
