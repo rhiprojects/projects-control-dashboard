@@ -119,7 +119,7 @@ function aiSimpleOrbV10(){
   const x=center+Math.cos(theta)*ringRadius*radius;
   const y=center+Math.sin(theta)*ringRadius*radius;
   const brightness=(depth+1)/2;
-  const r=(1.22+1.13*brightness).toFixed(2);
+  const r=(0.75+0.70*brightness).toFixed(2);
   const op=(.30+.64*brightness).toFixed(2);
   const sparkle=i%13===0;
   const delay=-(i%17)*.41;
