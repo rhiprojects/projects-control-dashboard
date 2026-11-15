@@ -135,7 +135,7 @@ function v7Chart(title,kind,labels,series,currency='',options={}){
  const isHorizontal=kind==='horizontal';
  const payload=JSON.stringify({kind,labels,series,currency,...options});
  const chartHeight=isHorizontal?' style="height:'+Math.max(265,140+labels.length*56)+'px"':'';
- return '<div class="v7-chart-panel'+(isHorizontal?' v7-team-chart-panel':'')+'"><h3>'+h(title)+'</h3><div class="v7-chart'+(isHorizontal?' v7-chart-horizontal':'')+'"'+chartHeight+' role="img" aria-label="'+h(title)+'" data-chart="'+h(payload)+'"></div><p class="v7-chart-note">'+(isHorizontal?'Head of Projects: portfolio oversight. Team members: directly assigned projects. Counts are not hours or utilization.':'Values reflect available records only. Refer to the table for exact figures.')+'</p></div>';
+ return '<div class="v7-chart-panel'+(isHorizontal?' v7-team-chart-panel':'')+'"><h3>'+h(title)+'</h3><div class="v7-chart'+(isHorizontal?' v7-chart-horizontal':'')+'"'+chartHeight+' role="img" aria-label="'+h(title)+'" data-chart="'+h(payload)+'"></div><p class="v7-chart-note">'+(isHorizontal?'Each bar shows directly assigned projects. Counts are not hours or utilization.':'Values reflect available records only. Refer to the table for exact figures.')+'</p></div>';
 }
 function v7LoadCharts(){
  if(window.echarts)return Promise.resolve(window.echarts);
@@ -234,25 +234,25 @@ function v5FinancialPanel(p){
 }
 function v5TeamPanel(){
  if(!lead())return '';
- // Include the Head of Projects (portfolio oversight) and team_member roles,
- // but never count an administrative account as a project team member.
- const people=(dashboardV5.people||[]).filter(u=>u.active&&(u.role==='team_member'||u.role==='head_of_projects'))
-  .sort((a,b)=>(a.role==='head_of_projects'?0:1)-(b.role==='head_of_projects'?0:1)||a.display_name.localeCompare(b.display_name));
+ // Only actual active team members appear here; Head of Projects is the manager,
+ // and the full accessible portfolio sets the chart scale, not a manager bar.
+ const people=(dashboardV5.people||[]).filter(u=>u.active&&u.role==='team_member')
+  .sort((a,b)=>String(a.display_name||'').localeCompare(String(b.display_name||'')));
  const visibleCodes=[...new Set(projects.map(p=>p.id))];
  const accessible=new Set(visibleCodes);
  const assignments=(dashboardV5.assignments||[]).filter(a=>accessible.has(a.project_code));
- const rows=people.map(u=>{
-  const oversight=u.role==='head_of_projects';
-  const codes=oversight?visibleCodes:[...new Set(assignments.filter(a=>a.user_id===u.id).map(a=>a.project_code))];
-  return {name:u.display_name,codes,scope:oversight?'Portfolio oversight':'Direct assignment'};
+ const members=people.map(u=>{
+  const codes=[...new Set(assignments.filter(a=>a.user_id===u.id).map(a=>a.project_code))];
+  return {name:u.display_name,codes};
  });
- return '<section class="card panel v4-section"><h2 class="paneltitle">Team Workload</h2>'+
- '<p class="v5-context">Head of Projects: all accessible projects under oversight. Team members: directly assigned projects. Counts are not hours or utilization.</p>'+
- (rows.length?v7Chart('Projects By Team Member','horizontal',rows.map(x=>x.name),
- [{name:'Projects in Scope',values:rows.map(x=>x.codes.length)}],'',{maxProjects:accessible.size})+
- '<div class="table-wrap"><table class="v6-team-table"><thead><tr><th>Team Member</th><th>Projects in Scope</th><th>Project Codes</th></tr></thead><tbody>'+
- rows.map(u=>'<tr><td><strong>'+h(u.name)+'</strong><small class="v8-team-scope">'+h(u.scope)+'</small></td><td class="v6-count">'+u.codes.length+'</td><td>'+h(u.codes.join(', ')||'None recorded')+'</td></tr>').join('')+
- '</tbody></table></div>':'<p>No active project team members are available.</p>')+'</section>';
+ return '<section class="card panel v4-section v8-team-section"><h2 class="paneltitle">Team Workload</h2>'+
+ '<p class="v5-context">Direct project assignments for active team members. The chart scale covers all '+accessible.size+' projects accessible to the Head of Projects; counts are not hours or utilization.</p>'+
+ (members.length?'<div class="v8-team-layout"><div class="v8-team-graph">'+
+ v7Chart('Assigned Projects By Team Member','horizontal',members.map(x=>x.name),
+ [{name:'Assigned Projects',values:members.map(x=>x.codes.length)}],'',{maxProjects:accessible.size})+
+ '</div><div class="v8-team-members"><h3>Team Members</h3><div class="v8-team-roster">'+
+ members.map(u=>'<div class="v8-member-item"><div class="v8-member-top"><strong>'+h(u.name)+'</strong><span class="v8-member-count">'+u.codes.length+' project'+(u.codes.length===1?'':'s')+'</span></div><div class="v8-member-codes"><span>Project codes</span><strong>'+h(u.codes.join(', ')||'None assigned')+'</strong></div></div>').join('')+
+ '</div></div></div>':'<p>No active team members are available.</p>')+'</section>';
 }
 function v5Portfolio(){
  const currencies=[...new Set(active().map(p=>v7BudgetCurrency(p.id)).filter(Boolean))];
