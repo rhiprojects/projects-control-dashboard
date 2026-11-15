@@ -13,7 +13,7 @@ const cssBlock=(section)=>{
 
 test('mobile timeline labels each budget month without removing the twelve-period model',()=>{
  assert.match(app,/data-month=['"]?/,'month labels must exist on timeline budget cells');
- assert.match(app,/Jan','February and other labels retained');
+ assert.match(app,/Jan/,'January label retained');
  assert.match(app,/Dec/,'December period retained');
  const mobile=cssBlock();
  assert.match(mobile,/\.dashboard-timeline-grid\s*\{\s*min-width:\s*0/,'timeline must stop forcing a 795px canvas on phones');
