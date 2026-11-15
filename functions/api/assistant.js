@@ -25,7 +25,7 @@ function classify(question){
   contract:/contract|agreement|signed|clause|penalt|retention|warrant|insurance|liabil|termination|payment term|variation|obligation|dispute/i.test(q),
   clause:/clause|penalt|retention|warrant|insurance|liabil|termination|payment term|variation|obligation|dispute|advance payment|liquidated damages|force majeure/i.test(q),
   team:/team|assign|employee|staff|manpower|workload|responsib|manager|supervisor|engineer|who (is|are)|owner|holding|hold|handled by/i.test(q),
-  finance:/budget|cost|cogs|financ|amount|margin|profit|revenue|actual|expense|salary|spend|monthly|payment|loss|losing|lost money|deficit/i.test(q),
+  finance:/budget|cost|cogs|financ|amount|margin|profit|revenue|actual|expense|salary|spend|monthly|payment|loss|losing|lose|lost|deficit/i.test(q),
   schedule:/start|end|finish|complet|due|deadline|duration|progress|schedule|date|when/i.test(q),
   location:/location|located|where|site|city|address/i.test(q)
  };
@@ -52,7 +52,7 @@ function projectLine(p,owner,assignees,monthly){
 // "Loss-making projects" and "amount of loss this year" are distinct questions.
 const cairoCalendarYear=(now=new Date())=>new Intl.DateTimeFormat('en-GB',{timeZone:'Africa/Cairo',year:'numeric'}).format(now);
 function lossIntent(q){
- if(!/\b(loss|losses|losing|loss-making|deficit|deficits)\b|\blost money\b|negative (?:gross )?(?:margin|profit)/i.test(q))return null;
+ if(!/\b(loss|losses|losing|loss-making|lose|lost|deficit|deficits)\b|\blost money\b|negative (?:gross )?(?:margin|profit)/i.test(q))return null;
  if(/\b(?:how many|number of)\s+projects?\b/i.test(q))return 'projects';
  return /\b(?:how much|how many losses|total losses|total loss|amount|incurr?ed|did i lose|monetary loss|financial loss)\b/i.test(q)?'amount':'projects';
 }
