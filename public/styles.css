@@ -312,3 +312,23 @@ html,body,.app,.main,.content{background:#FFFFFF}
 @media(max-width:560px){
  .ai-orb-v10{margin:0 auto 8px}
 }
+
+.sidebar-close{display:none}
+.sidebar .signout{background:transparent;color:var(--portal-canvas);border-color:var(--portal-divider)}
+.sidebar .signout:hover,.sidebar .signout:focus-visible{background:var(--portal-divider);color:var(--portal-ink)}
+.sidebar button:focus-visible{outline-color:var(--portal-canvas)}
+.pagetitle:focus-visible,.data-status:focus-visible{outline:2px solid var(--portal-ink);outline-offset:3px}
+.okay-box{margin-bottom:18px}
+.data-status p{margin:8px 0 0}
+.data-status button{margin-top:12px}
+#discard-project-draft{width:min(420px,calc(100% - 32px))}
+#discard-project-draft::backdrop{background:#3A40614c}
+svg.v5-track{display:block;width:100%}
+.v5-track rect{fill:var(--portal-accent)}
+
+@media(max-width:780px){
+ .sidebar{visibility:hidden;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+ .sidebar.open{visibility:visible}
+ .mobile-menu.btn,.sidebar-close{display:inline-flex;min-height:44px}
+ .sidebar-close{align-self:flex-end;margin-bottom:12px}
+}
