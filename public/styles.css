@@ -300,12 +300,12 @@ html,body,.app,.main,.content{background:#FFFFFF}
 .ai-matrix-ring-dot-v9{
  position:absolute;
  display:block;
- left:-1.7px;
- top:-1.7px;
- width:3.4px;
- height:3.4px;
+ left:-2px;
+ top:-2px;
+ width:4px;
+ height:4px;
  border-radius:50%;
- background:radial-gradient(circle at 32% 28%,#F4F6FB 0%,#B3C0DD 32%,#7B88B6 62%,#3A4061 100%);
+ background:radial-gradient(circle at 30% 25%,#DBE2F2 0%,#7B88B6 42%,#3A4061 100%);
  box-shadow:0 0 3px rgba(58,64,97,.17);
  backface-visibility:visible;
 }
