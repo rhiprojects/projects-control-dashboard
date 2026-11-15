@@ -44,6 +44,7 @@ test('detailed financial tables remain fully scrollable and distinguish the lead
  assert.match(mobile,/\.table-wrap\.portal-table th:first-child/);
  assert.match(mobile,/position:\s*sticky/);
  assert.match(mobile,/\.table-wrap\.portal-table table\s*\{[^}]*min-width:\s*620px/);
+ assert.match(mobile,/Swipe sideways to see more columns/,'mobile tables should explain horizontal navigation');
 });
 
 test('mobile forms and navigation have comfortable controls without altering roles or API operations',()=>{
