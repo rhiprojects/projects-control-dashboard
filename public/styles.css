@@ -140,7 +140,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 
 /* v8: approved five-color portal palette. Replaces legacy navy/teal/green UI colors. */
 :root {
- --portal-canvas: #F4F6FB;
+ --portal-canvas: #FFFFFF;
  --portal-panel: #DBE2F2;
  --portal-divider: #B3C0DD;
  --portal-accent: #7B88B6;
@@ -214,3 +214,39 @@ table tbody tr:hover{background:var(--portal-canvas)}
 .v8-team-scope{display:block;color:var(--portal-ink);font-size:12px;font-weight:400;margin-top:4px}
 @media(max-width:720px){.v7-chart-horizontal{min-height:285px}}
 @media print{.card,.panel,.v7-chart-panel{background:var(--portal-canvas)}}
+
+
+/* Requested revision: pure white app canvas and split Team Workload layout. */
+html,body,.app,.main,.content{background:#FFFFFF}
+.topbar,.card,.panel,.tablecard,.projectcard,.ai-card-v4,.login-card,
+.v8-team-section,.v7-chart-panel,.v8-team-members{background:#FFFFFF}
+.v8-team-layout{
+ display:grid;
+ grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);
+ align-items:start;
+ gap:24px;
+ margin-top:18px;
+}
+.v8-team-graph,.v8-team-members{min-width:0}
+.v8-team-graph .v7-chart-panel{margin:0}
+.v8-team-members{
+ border:1px solid var(--portal-divider);
+ border-radius:12px;
+ padding:18px;
+}
+.v8-team-members h3{font-size:17px;font-weight:650;color:var(--portal-ink);margin:0 0 15px}
+.v8-team-roster{display:flex;flex-direction:column;gap:10px}
+.v8-member-item{
+ padding:14px;
+ border:1px solid var(--portal-divider);
+ border-radius:10px;
+ background:#FFFFFF;
+}
+.v8-member-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.v8-member-top strong{font-size:14px;color:var(--portal-ink);overflow-wrap:anywhere}
+.v8-member-count{white-space:nowrap;font-size:12px;font-weight:650;padding:5px 9px;border-radius:7px;background:var(--portal-panel);color:var(--portal-ink)}
+.v8-member-codes{display:flex;gap:5px;flex-direction:column;margin-top:13px;font-size:12px}
+.v8-member-codes span{color:var(--portal-ink)}
+.v8-member-codes strong{font-weight:600;color:var(--portal-ink);overflow-wrap:anywhere}
+@media(max-width:1050px){.v8-team-layout{grid-template-columns:1fr;gap:16px}}
+@media(max-width:560px){.v8-team-members{padding:12px}.v8-member-top{flex-wrap:wrap}}
