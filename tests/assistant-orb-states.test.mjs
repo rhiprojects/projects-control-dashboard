@@ -15,6 +15,7 @@ test('orb has 156 individually positioned SVG dots and sparse animated accents',
  const markup=renderOrb(false);
  const dots=[...markup.matchAll(/<circle class="ai-orb-dot-v10(?: ai-orb-spark-v10)?" cx="([\d.]+)" cy="([\d.]+)" r="([\d.]+)"/g)];
  assert.equal(dots.length,156);
+ assert.ok(dots.every(m=>Number(m[3])>=0.7&&Number(m[3])<=1.5),'Dots stay fine-grained without changing orb distribution');
  const sparkles=(markup.match(/class="ai-orb-dot-v10 ai-orb-spark-v10"/g)||[]).length;
  assert.ok(sparkles>=8&&sparkles<=16,'Keep accents sparse, not a flickering whole sphere');
  assert.match(markup,/<svg[^>]+viewBox="0 0 144 144"/);
@@ -34,7 +35,7 @@ test('orb remains visibly spread even when transform and animation support is ab
 });
 
 test('continuous rotation and small individual pulses are CSS-only',()=>{
- assert.match(css,/\.ai-orb-rotate-v10\{[^}]*animation:ai-orb-turn-v10 19s linear infinite/);
+ assert.match(css,/\.ai-orb-rotate-v10\{[^}]*animation:ai-orb-turn-v10 32s linear infinite/);
  assert.match(css,/\.ai-orb-spark-v10\{[^}]*animation:ai-orb-pulse-v10 4\.4s/);
  assert.match(css,/@keyframes ai-orb-turn-v10/);
  assert.match(css,/@keyframes ai-orb-pulse-v10/);
