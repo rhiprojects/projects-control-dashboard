@@ -687,3 +687,107 @@ input::placeholder,textarea::placeholder{color:#72849A;opacity:1}
  .table-wrap table th{background:#EDF2F7!important;color:#223246!important}
  .table-wrap tr{break-inside:avoid}
 }
+
+/* Reference-led Phase 4 refinement. */
+:root{--portal-canvas:#FFFFFF;--bg:#FFFFFF;--v6-canvas:#FFFFFF}
+html,body,.app,.main,.content{background:#FFFFFF}
+.sidebar{width:240px;padding:22px 14px 16px;background:#1C2B38;overflow-y:auto;isolation:isolate}
+.main{margin-left:240px}
+.sidebar .brand{padding:0 8px;gap:11px;margin:0 0 26px;position:relative;z-index:1}
+.industrial-logo{width:40px;flex:none;color:#FFFFFF}
+.industrial-logo svg{display:block;width:40px;height:50px}
+.sidebar .brandname{font-size:25px;font-weight:750;letter-spacing:-.02em;line-height:1.1}
+.sidebar .brandname small{font-size:11px;font-weight:650;line-height:1.45;letter-spacing:.04em;margin-top:6px;color:#E3EAF0}
+.sidebar .nav{position:relative;z-index:1;gap:4px}
+.sidebar .nav button{min-height:40px;padding:9px 13px;font-size:14px;gap:12px;border-radius:8px;line-height:1.4;letter-spacing:0}
+.sidebar .nav .ui-icon{width:20px;height:20px;stroke-width:1.7}
+.sidebar .nav button.active,.sidebar .nav button.active:hover{background:#246EB0;box-shadow:none}
+.sidebar .nav button .num{border-radius:5px;padding:2px 7px;font-size:12px}
+.nav-chevron{margin-left:auto;font-size:18px}
+.sidebar .nav-submenu{display:grid;gap:2px;margin:1px 0 5px}
+.sidebar .nav-submenu button{font-size:12px;min-height:32px;padding:5px 8px 5px 33px;gap:10px;font-weight:500}
+.sidebar .nav-submenu button.selected{background:#294457;color:#FFFFFF}
+.sidebar-photo{position:absolute;z-index:-1;pointer-events:none;left:0;right:0;bottom:0;height:310px;background-image:linear-gradient(180deg,#1C2B38 0%,rgba(28,43,56,.1)60%),url('/assets/sidebar-cement.jpg');background-position:center;background-size:100% 100%,cover;background-repeat:no-repeat}
+.sidebar .sidebottom{position:relative;z-index:1;background:rgba(23,37,49,.95);border:1px solid #526778;border-radius:9px;margin-top:auto;padding:12px 10px 10px}
+.sidebar .sidebottom small{color:#E3EAF0;overflow-wrap:anywhere;font-size:12px;line-height:1.5}
+.sidebar .sidebottom strong{font-size:12px}
+.sidebar .signout{margin-top:9px;min-height:36px}
+.sidebar .nav:after{content:"";height:24px}
+.sidebar-close{position:relative;z-index:2}
+.sidebar button:focus-visible{outline-color:#E3EAF0!important}
+.topbar{height:48px;min-height:48px;padding:0 24px;background:#FFFFFF}
+.content{padding:20px 24px 36px}
+.pageheader{margin-bottom:16px;gap:12px}
+.pagetitle{font-size:26px;font-weight:750;line-height:1.25;letter-spacing:-.025em}
+.overview-header{align-items:center;margin-bottom:16px}
+.overview-header .pagetitle{font-size:25px;margin:0}
+.eyebrow{font-size:11px;letter-spacing:.04em}
+.paneltitle,.ai-top-v4 h2{font-size:16px!important;line-height:1.35;letter-spacing:-.015em!important}
+.panel{padding:16px 18px}
+.cards{gap:12px;margin-bottom:16px}
+.kpi{grid-template-columns:34px minmax(0,1fr);column-gap:10px;min-height:116px;padding:15px 14px;align-content:start}
+.kpi-icon,.kpi-icon.blue,.kpi-icon.amber,.kpi-icon.red{width:34px;height:34px;border-radius:8px}
+.kpi-icon svg{height:20px;width:20px}
+.kpi-label{font-size:12px;line-height:1.4;font-weight:650;min-height:34px}
+.kpi-value{font-size:22px;line-height:1.2;letter-spacing:-.025em;font-weight:750;margin:5px 0;font-variant-numeric:tabular-nums}
+.kpi-note{font-size:12px;line-height:1.4}
+.grid-two.v4-grid{gap:16px;margin-bottom:20px;align-items:start}
+.v8-team-section{margin-top:20px;margin-bottom:16px}
+.v8-team-layout{gap:16px;margin-top:12px}
+.v8-team-members{padding:14px}
+.v8-member-item{padding:10px}
+.v8-member-codes{margin-top:8px}
+.v7-chart-panel{margin:16px 0;padding:14px}
+.v4-section{margin-bottom:16px}
+.projectgrid{gap:14px}
+.projectcard{padding:16px}
+.projectname{font-size:16px;line-height:1.4}
+.projectcard .projectstats{margin-top:12px;gap:10px}
+.table-wrap table th,.portal-table th{font-size:12px;letter-spacing:0;text-transform:none;padding:10px 12px}
+.table-wrap table td,.portal-table td{padding:10px 12px;font-size:13px;line-height:1.5}
+.project-form-group{padding-top:12px}
+.project-form-group+.project-form-group{margin-top:16px}
+.project-form-group legend{font-size:15px}
+.v4-formgrid{gap:12px}
+.v4-formgrid input,.v4-formgrid select,.project-form-group textarea{padding:9px 10px}
+.btn{min-height:38px;padding:8px 12px;font-size:12px}
+.btn.small{min-height:34px}
+.ai-card-v4{padding:16px!important;gap:12px;box-shadow:none}
+.ai-identity-v4{gap:10px}
+.ai-mark-v4{width:36px;height:36px;border-radius:8px;background:#E9F3FB}
+.ai-mark-v4 .ui-icon{width:25px;height:25px}
+.ai-description-v4{font-size:12px;line-height:1.5}
+.ai-menu-v4{min-height:34px;font-size:12px}
+.ai-heading-v4{margin:0;font-size:12px}
+.ai-topics-v4{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.ai-topics-v4 button{min-height:36px;padding:7px 8px;gap:6px;font-size:12px}
+.ai-input-v4{padding:5px;gap:8px;border-radius:9px}
+.ai-input-v4 input{min-height:36px;font-size:13px;padding:6px 8px}
+.ai-input-v4 button{min-height:36px;padding:7px 11px}
+.ai-chat-v4{padding:10px 0;max-height:300px;gap:10px}
+.ai-message{max-width:94%;padding:9px 11px;background:#F3F7FB;border-radius:8px}
+.ai-message.my-question{align-self:flex-end;background:#E6F2FC}
+.ai-message-author{display:block;font-size:11px;font-weight:700;color:#31516D;margin-bottom:4px}
+.ai-chat-v4 .ai-message p{padding:0;margin:0;background:transparent;max-width:none;font-size:13px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}
+.ai-response-status{font-size:12px;color:#31516D;margin:0}
+.ai-response-status:empty{display:none}
+.finance-section-picker{margin-bottom:16px}
+.finance-section-picker select{max-width:100%;min-width:0}
+[id^="project-"]:focus-visible,.ai-chat-v4:focus-visible{outline:2px solid #2475B7;outline-offset:3px}
+@media(max-width:780px){
+ .main{margin-left:0}
+ .sidebar{width:240px}
+ .sidebar .nav button{min-height:44px}
+ .sidebar .nav-submenu button{min-height:38px}
+ .content{padding:16px 14px 30px}
+ .topbar{height:54px;min-height:54px;padding:0 14px}
+ .kpi{min-height:112px;padding:14px;grid-template-columns:34px minmax(0,1fr)}
+ .kpi-value{font-size:22px}
+ .kpi-icon{width:34px;height:34px}
+ .ai-card-v4{padding:14px!important}
+ .pagetitle,.overview-header .pagetitle{font-size:23px}
+}
+@media(max-width:440px){
+ .ai-topics-v4{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .overview-header{flex-wrap:wrap}
+}
