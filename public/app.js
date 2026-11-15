@@ -293,16 +293,39 @@ function v5Health(id,currency){
 }
 function v5Arrow(p){
  const result=v5Health(p.id,p.contractCurrency);
- return result?'<span class="v5-trend '+result.direction+'" title="Recorded Revenue minus COGS only: '+h(fmt(result.margin))+' '+h(p.contractCurrency)+'" aria-label="'+(result.direction==='up'?'Positive':'Negative')+' recorded margin">'+(result.direction==='up'?'↗':'↘')+'</span>':'<span class="v5-trend unavailable" title="Recorded margin unavailable until Revenue and COGS actuals are mapped" aria-label="Financial margin unavailable">—</span>';
+ const explanation=result?'Recorded Revenue minus COGS: '+moneyLabel(result.margin,p.contractCurrency)+'. The arrow indicates the sign of the recorded margin.':'Recorded margin unavailable: Revenue and COGS actuals are required in the contract currency.';
+ return '<span class="financial-margin"><span class="v5-trend '+(result?result.direction:'unavailable')+'" title="'+h(explanation)+'" aria-label="'+h(explanation)+'">'+(result?(result.direction==='up'?'↗':'↘'):'—')+'</span><small>'+(result?'Recorded margin':'Margin unavailable')+'</small></span>';
+}
+function financialTable(caption,columns,rows){
+ const headers=columns.map((column,i)=>
+  '<th scope="col"'+(i?' class="financial-number"':'')+'>'+h(column)+'</th>'
+ ).join('');
+ const body=rows.map(row=>'<tr>'+row.map((value,i)=>
+  (i?'<td class="financial-number">':'<th scope="row">')+h(value)+(i?'</td>':'</th>')
+ ).join('')+'</tr>').join('');
+ return '<div class="table-wrap financial-table" role="region" aria-label="'+h(caption)+
+  '" tabindex="0"><table><caption>'+h(caption)+'</caption><thead><tr>'+headers+
+  '</tr></thead><tbody>'+body+'</tbody></table></div>';
+}
+function marginContext(p){
+ const rows=(dashboardV5.actuals||[]).filter(x=>x.project_code===p.id&&x.currency===p.contractCurrency);
+ const missing=['Revenue','COGS'].filter(name=>!rows.some(x=>String(x.account_name).trim().toLowerCase()===name.toLowerCase()));
+ if(missing.length)return 'Insufficient actual data. '+missing.join(' and ')+' actuals are not recorded in '+(p.contractCurrency||'the contract currency')+'.';
+ if(rows.some(x=>v5Number(x.amount)===null))return 'Insufficient actual data. Some recorded actual amounts are missing.';
+ return 'Recorded margin is Revenue minus COGS across available records in the contract currency. It is not a historical trend or a validated profit/loss statement. Periods and accounts are listed in Historical P&L Actuals.';
 }
 /* v7: Presentation-only ECharts. Existing records and tables remain authoritative. */
 let v7ChartsPromise=null;
 function v7Chart(title,kind,labels,series,currency='',options={}){
- if(!labels.length||!series.length)return '';
+ if(!labels.length||!series.length)return options.table?'<section class="v7-chart-panel financial-chart-panel"><h3>'+h(title)+'</h3><p class="financial-note">No approved budget amounts recorded for this chart.</p>'+options.table+'</section>':'';
  const isHorizontal=kind==='horizontal';
- const payload=JSON.stringify({kind,labels,series,currency,...options});
+ const {financial=false,table='',...chartOptions}=options;
+ const payload=JSON.stringify({kind,labels,series,currency,financial,...chartOptions});
+ const exact=financial?(table||financialTable(title+' — exact values',
+  ['Period / Category',...series.map(x=>x.name)],
+  labels.map((label,i)=>[label,...series.map(x=>moneyLabel(x.values[i],currency))]))):'';
  const chartHeight=isHorizontal?' style="height:'+Math.max(265,140+labels.length*56)+'px"':'';
- return '<div class="v7-chart-panel'+(isHorizontal?' v7-team-chart-panel':'')+'"><h3>'+h(title)+'</h3><div class="v7-chart'+(isHorizontal?' v7-chart-horizontal':'')+'"'+chartHeight+' role="img" aria-label="'+h(title)+'" data-chart="'+h(payload)+'"></div><p class="v7-chart-note">'+(isHorizontal?'Each bar shows directly assigned projects. Counts are not hours or utilization.':'Values reflect available records only. Refer to the table for exact figures.')+'</p></div>';
+ return '<div class="v7-chart-panel'+(isHorizontal?' v7-team-chart-panel':'')+(financial?' financial-chart-panel':'')+'"><h3>'+h(title)+'</h3><div class="v7-chart'+(isHorizontal?' v7-chart-horizontal':'')+'"'+chartHeight+' role="img" aria-label="'+h(title+(financial?'. Recorded budget values by category. Exact amounts are available in the following table.':''))+'" data-chart="'+h(payload)+'"></div><p class="v7-chart-note">'+(isHorizontal?'Each bar shows directly assigned projects. Counts are not hours or utilization.':financial?'Budget figures are forecasts. Not recorded indicates a missing value; 0 indicates a recorded zero. Exact values follow.':'Values reflect available records only. Refer to the table for exact figures.')+'</p>'+exact+'</div>';
 }
 function v7LoadCharts(){
  if(window.echarts)return Promise.resolve(window.echarts);
@@ -337,7 +360,7 @@ async function v7RenderCharts(){
      trigger:'axis',backgroundColor:'#F4F6FB',borderColor:'#B3C0DD',
      textStyle:{color:'#3A4061'},
      axisPointer:{lineStyle:{color:'#B3C0DD'},shadowStyle:{color:'#DBE2F2'}},
-     valueFormatter:v=>Number(v).toLocaleString('en-US',{maximumFractionDigits:2})+(data.currency?' '+data.currency:'')
+     valueFormatter:v=>v==null?'Not recorded':Number(v).toLocaleString('en-US',{maximumFractionDigits:2})+(data.currency?' '+data.currency:'')
     },
     legend:{top:0,type:'scroll',textStyle:{color:'#3A4061'}},
     grid:horizontal?{left:24,right:32,top:48,bottom:42,containLabel:true}:{left:16,right:22,top:48,bottom:48,containLabel:true},
@@ -347,7 +370,7 @@ async function v7RenderCharts(){
      axisLabel:{color:'#3A4061',formatter:value=>Number.isInteger(value)?String(value):''},
      splitLine:{lineStyle:{color:'#DBE2F2'}}
     }:{
-     type:'category',data:data.labels,axisLabel:{hideOverlap:true,color:'#3A4061'},
+     type:'category',data:data.labels,axisLabel:{hideOverlap:!data.financial,color:'#3A4061',rotate:data.financial?35:0,...(data.financial?{width:90,overflow:'break'}:{})},
      axisLine:{lineStyle:{color:'#B3C0DD'}}
     },
     yAxis:horizontal?{
@@ -355,12 +378,13 @@ async function v7RenderCharts(){
      axisLabel:{color:'#3A4061',fontSize:12,margin:16},
      axisTick:{show:false},axisLine:{lineStyle:{color:'#B3C0DD'}}
     }:{
-     type:'value',axisLabel:{formatter:v=>Number(v).toLocaleString('en-US'),color:'#3A4061'},
+     type:'value',name:data.financial?data.currency:'',axisLabel:{formatter:v=>Number(v).toLocaleString('en-US',{maximumFractionDigits:2}),color:'#3A4061'},
      splitLine:{lineStyle:{color:'#DBE2F2'}}
     },
     series:data.series.map((x,i)=>({
      name:x.name,type:data.kind==='line'?'line':'bar',data:x.values,smooth:false,
-     barMaxWidth:horizontal?32:36,itemStyle:{color:colors[i%colors.length]}
+     barMaxWidth:horizontal?32:36,itemStyle:{color:colors[i%colors.length],
+      ...(data.financial&&i===1?{decal:{symbol:'rect',dashArrayX:[1,0],dashArrayY:[2,4],color:'#3A4061'}}:{})}
     }))
    };
    chart.setOption(option);
@@ -389,14 +413,14 @@ function v5FinancialPanel(p){
    return matching.length>0&&Math.abs(matching.reduce((n,x)=>n+Number(x.baseline_amount),0)-Number(m.baseline_amount))<0.01;
  });
  const categoriesAvailable=valid.length>0&&categoriesReconcile;
- const note=categoriesAvailable?'Detailed categories reflect the scheduled months in the monthly project budget.':'Detailed categories do not fully reconcile with the monthly project budget; category comparisons are withheld until reconciled.';
- return '<section class="card panel v4-section v5-financial" aria-label="Financial analysis"><h2 class="paneltitle">Project Financial Analysis</h2><p class="v5-context">The 2027 project budget includes manpower and other project costs. Contract value and recorded P&L use the contract currency shown.</p>'+
- '<div class="v5-metrics"><div><small>'+moneyHeading('Original Contract Value',contractCurrency)+'</small><strong>'+v5Money(p.contractValue,contractCurrency)+'</strong></div><div><small>'+moneyHeading('2027 Approved Project Budget',currency)+'</small><strong>'+v5Money(approved,currency)+'</strong></div><div><small>'+moneyHeading('2027 Working Project Budget',currency)+'</small><strong>'+v5Money(working,currency)+'</strong></div><div><small>'+moneyHeading('Recorded P&L Margin',contractCurrency)+'</small><strong>'+v5Money(health?.margin??null,contractCurrency)+'</strong></div></div>'+
- v7Chart('2027 Monthly Project Budget — Approved vs Working'+(currency?' · '+currency:''),'bar',months.map(x=>String(x.period_start).slice(0,7)),[{name:'Approved Budget',values:months.map(x=>v5Number(x.baseline_amount))},{name:'Working Budget',values:months.map(x=>v5Number(x.current_amount))}],currency)+
- (categoriesAvailable?v7Chart('2027 Scheduled Costs By Category'+(currency?' · '+currency:''),'bar',totals.map(x=>x.category),[{name:'Scheduled Costs',values:totals.map(x=>x.amount)}],currency):'')+
+ const note=categoriesAvailable?'Category values reconcile with approved monthly budgets for the included scheduled months. These are budgeted reference costs.':'Category comparisons are withheld because the reference lines do not establish a reconciled breakdown of the scheduled monthly budget. The approved and working monthly budgets remain available below.';
+ return '<section class="card panel v4-section v5-financial" aria-label="Financial analysis"><h2 class="paneltitle">Project Financial Analysis</h2><p class="v5-context">Original Contract Value is contractual and has no annual reporting period here. Approved and Working Project Budgets cover the available 2027 monthly records and include manpower and other costs. These measures retain their own currencies and do not establish actual revenue, incurred expenditure, or profit.</p>'+
+ '<div class="v5-metrics"><div><small>'+moneyHeading('Original Contract Value',contractCurrency)+'</small><strong>'+v5Money(p.contractValue,contractCurrency)+'</strong><p class="financial-note">Contractual amount</p></div><div><small>'+moneyHeading('2027 Approved Project Budget',currency)+'</small><strong>'+v5Money(approved,currency)+'</strong><p class="financial-note">Approved forecast · 2027</p></div><div><small>'+moneyHeading('2027 Working Project Budget',currency)+'</small><strong>'+v5Money(working,currency)+'</strong><p class="financial-note">Working forecast · 2027</p></div><div><small>'+moneyHeading('Recorded P&L Margin',contractCurrency)+'</small><strong>'+v5Money(health?.margin??null,contractCurrency)+'</strong><p class="financial-note">Available recorded periods</p></div></div><p class="financial-note">'+h(marginContext(p))+'</p>'+
+ v7Chart('2027 Monthly Project Budget — Approved vs Working'+(currency?' · '+currency:''),'bar',months.map(x=>String(x.period_start).slice(0,7)),[{name:'Approved Budget',values:months.map(x=>v5Number(x.baseline_amount))},{name:'Working Budget',values:months.map(x=>v5Number(x.current_amount))}],currency,{financial:true})+
+ (categoriesAvailable?v7Chart('2027 Scheduled Costs By Category'+(currency?' · '+currency:''),'bar',totals.map(x=>x.category),[{name:'Scheduled Costs',values:totals.map(x=>x.amount)}],currency,{financial:true}):'')+
  '<p class="v5-context">'+h(note)+'</p>'+
- '<div class="v5-analysis-grid"><div><h3>Scheduled Costs By Category</h3><p class="v5-context">Reference cost lines are restricted to scheduled budget months; bars are scaled to the largest category.</p>'+
- (categoriesAvailable?totals.map(x=>'<div class="v5-bar-row"><div><span>'+h(x.category)+'</span><strong>'+fmt(x.amount)+' '+h(currency)+'</strong></div>'+categoryBar(x.amount,maximum)+'</div>').join(''):'<p>Category breakdown pending reconciliation with the monthly budget.</p>')+
+ '<div class="v5-analysis-grid"><div><h3>Scheduled Costs By Category</h3><p class="v5-context">Budgeted reference costs for included scheduled months. Bar lengths are relative to the largest category; exact amounts are labeled.</p>'+
+ (categoriesAvailable?totals.map(x=>'<div class="v5-bar-row"><div><span>'+h(x.category)+'</span><strong>'+fmt(x.amount)+' '+h(currency)+'</strong></div>'+categoryBar(x.amount,maximum)+'</div>').join(''):'<p>Category amounts are withheld pending reconciliation with the scheduled monthly budget.</p>')+
  '</div><div><h3>2027 Monthly Project Budget</h3>'+(months.length?'<div class="table-wrap"><table><thead><tr><th>Month</th><th>Approved</th><th>Working</th></tr></thead><tbody>'+months.map(x=>'<tr><td>'+h(String(x.period_start).slice(0,7))+'</td><td>'+v5Money(v5Number(x.baseline_amount),currency)+'</td><td>'+v5Money(v5Number(x.current_amount),currency)+'</td></tr>').join('')+'</tbody></table></div>':'<p>No 2027 monthly project budget recorded.</p>')+'</div></div></section>';
 }
 function v5TeamPanel(){
@@ -429,18 +453,26 @@ function v5Portfolio(){
    const total=v7Total(v7MonthlyBudget(p.id).filter(x=>x.currency===currency),'baseline_amount');
    if(total!==null){labels.push(p.id);values.push(total);}
   });
-  return v7Chart('2027 Project Budget By Project · '+currency,'bar',labels,[{name:'Approved Project Budget',values}],currency);
+  const exactRows=active().filter(p=>v7BudgetCurrency(p.id)===currency).map(p=>{
+   const months=v7MonthlyBudget(p.id).filter(x=>x.currency===currency);
+   return [p.id+' · '+(p.displayName||p.client),moneyLabel(v7Total(months,'baseline_amount'),currency),
+    moneyLabel(v7Total(months,'current_amount'),currency),moneyLabel(p.contractValue,p.contractCurrency)];
+  });
+  return v7Chart('2027 Approved Project Budget by Project · '+currency,'bar',labels,[{name:'Approved Project Budget',values}],currency,
+   {financial:true,table:financialTable('2027 project budgets · '+currency+'; original contract values in their own currencies',
+    ['Project','Approved Project Budget','Working Project Budget','Original Contract Value'],exactRows)});
  }).join('');
- return charts+'<section class="card panel v4-section"><div class="panelhead"><h2 class="paneltitle">Project Financial Overview</h2></div><p class="v5-context">2027 projected monthly project budgets include manpower and other project costs, grouped by budget currency. Contract values may use a different currency. Arrows reflect recorded Revenue minus COGS only.</p><div class="v5-portfolio-grid">'+active().map(p=>{
+ return charts+'<section class="card panel v4-section"><div class="panelhead"><h2 class="paneltitle">Project Financial Overview</h2></div><p class="v5-context">2027 project budgets are forecasts grouped by budget currency. Original contract values retain their contractual currencies. Margin arrows indicate the sign of recorded Revenue minus COGS in the contract currency; they do not show a trend. Unavailable actuals remain neutral.</p><div class="v5-portfolio-grid">'+active().map(p=>{
   const currency=v7BudgetCurrency(p.id);
-  const total=v7Total(v7MonthlyBudget(p.id).filter(x=>x.currency===currency),'baseline_amount');
-  return '<div class="v5-portfolio-item"><div><strong>'+h(p.id)+' · '+h(p.displayName||p.client)+'</strong>'+v5Arrow(p)+'</div><small>'+moneyHeading('2027 Approved Project Budget',currency)+'</small><strong>'+v5Money(total,currency)+'</strong><button class="btn small" data-project="'+h(p.id)+'">View Financial Analysis</button></div>';
+  const months=v7MonthlyBudget(p.id).filter(x=>x.currency===currency);
+  const total=v7Total(months,'baseline_amount'),working=v7Total(months,'current_amount');
+  return '<div class="v5-portfolio-item"><div><strong>'+h(p.id)+' · '+h(p.displayName||p.client)+'</strong>'+v5Arrow(p)+'</div><small>'+moneyHeading('2027 Approved Project Budget',currency)+'</small><strong>'+v5Money(total,currency)+'</strong><small>'+moneyHeading('2027 Working Project Budget',currency)+'</small><strong>'+v5Money(working,currency)+'</strong><small>'+moneyHeading('Original Contract Value',p.contractCurrency)+'</small><strong>'+v5Money(p.contractValue,p.contractCurrency)+'</strong><button class="btn small" data-project="'+h(p.id)+'">View Financial Analysis</button></div>';
  }).join('')+'</div>'+(!active().length?'<p>No active project records available.</p>':'')+'</section>';
 }
 
 function overviewV4(){
  return heading("Overview",me.role==="head_of_projects"?cairoGreeting(me.displayName):`Welcome, ${me.displayName.split(' ')[0]}`,"Your projects at a glance.",'<button class="btn" data-action="reload">↻ Refresh</button>')+
- `<div class="cards">${kpi('Active Projects',String(active().length),'Active Projects','','projects')}${kpi('Contract Value · EGP',contractTotalLabel('EGP'),'Active projects','blue','contract')}${kpi('Contract Value · USD',contractTotalLabel('USD'),'Active projects','','money')}${kpi('Progress Not Recorded',String(missing('progress')),'Active Projects','amber','progress')}</div><div class="grid-two v4-grid"><section class="card panel"><div class="panelhead"><h2 class="paneltitle">Your Active Projects</h2><button class="btn small" data-page="projects">View all</button></div><ul class="list-naked">${active().map(p=>`<li><div><button class="plink" data-project="${h(p.id)}">${h(p.id)} · ${h(p.displayName||p.client)}</button><span class="subline">${h(p.status)} · ${h(p.contractCurrency)}</span></div>${dashboardV5?v5Arrow(p):''}</li>`).join('')}</ul></section>${aiPanelV4()}</div>${dashboardV5?v5TeamPanel()+v5Portfolio():dataStatus('Dashboard data',dashboardError,'retry-dashboard')}`;
+ `<div class="cards">${kpi('Active Projects',String(active().length),'Active Projects','','projects')}${kpi('Original Contract Value · EGP',contractTotalLabel('EGP'),'Active projects · contractual amounts','blue','contract')}${kpi('Original Contract Value · USD',contractTotalLabel('USD'),'Active projects · contractual amounts','','money')}${kpi('Progress Not Recorded',String(missing('progress')),'Active Projects','amber','progress')}</div><div class="grid-two v4-grid"><section class="card panel"><div class="panelhead"><h2 class="paneltitle">Your Active Projects</h2><button class="btn small" data-page="projects">View all</button></div><ul class="list-naked">${active().map(p=>`<li><div><button class="plink" data-project="${h(p.id)}">${h(p.id)} · ${h(p.displayName||p.client)}</button><span class="subline">${h(p.status)} · ${h(p.contractCurrency)}</span></div>${dashboardV5?v5Arrow(p):''}</li>`).join('')}</ul></section>${aiPanelV4()}</div>${dashboardV5?v5TeamPanel()+v5Portfolio():dataStatus('Dashboard data',dashboardError,'retry-dashboard')}`;
 }
 
 function createV4(){
