@@ -648,7 +648,7 @@ function dashboardFinancialV12(){
  }).join('');
  const ends='<section class="card panel dashboard-project-ends"><h3>Project End Dates</h3><ul>'+
   entries.map(x=>'<li><span>'+h(x.p.id+' · '+(x.p.displayName||x.p.client))+'</span><strong>'+h(portalProjectEndText(x.p))+'</strong></li>').join('')+'</ul></section>';
- return '<section class="dashboard-financial-overview"><div class="dashboard-financial-heading"><h2>2027 Project Financial Overview</h2><button class="btn small" data-page="financials">Detailed financial tables</button></div>'+
+ return '<section class="dashboard-financial-overview"><div class="dashboard-financial-heading"><h2>2027 Project Financial Overview</h2></div>'+
  '<div class="dashboard-financial-grid"><div class="dashboard-budget-groups">'+
  (budgetCharts||'<section class="card panel"><p>No 2027 project budget entries available.</p></section>')+
  '</div>'+ends+'</div>'+dashboardTimelineV12(entries)+'</section>';
