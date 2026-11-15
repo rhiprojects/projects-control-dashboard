@@ -273,7 +273,7 @@ html,body,.app,.main,.content{background:#FFFFFF}
 .ai-orb-rotate-v10{
  transform-box:view-box;
  transform-origin:72px 72px;
- animation:ai-orb-turn-v10 19s linear infinite;
+ animation:ai-orb-turn-v10 32s linear infinite;
 }
 .ai-orb-dot-v10{
  stroke:none;
