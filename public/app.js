@@ -1,5 +1,6 @@
 /* Projects Control v3.1 — Supabase-only; no demo users or fake permissions. */
 'use strict';
+import {createPasswordRecovery} from './password-recovery.js';
 const ROOT=document.getElementById('app');
 const $=(s)=>document.querySelector(s);
 const h=(v)=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -34,9 +35,11 @@ let cfg=null,auth=null,me=null,projects=[],adminData={users:[],assignments:[]},p
 const lead=()=>me?.role==='super_admin'||me?.role==='head_of_projects';
 const admin=()=>me?.role==='super_admin';
 const fromProject=(id)=>projects.find(p=>p.id===id)||null;
+const recovery=createPasswordRecovery({getConfig:()=>cfg,render:()=>render()});
 async function init(){
  try{const res=await fetch('/api/config',{cache:'no-store'});cfg=await res.json();}catch{error='Unable to reach the website API. Local functions must be running.';return render()}
  if(!cfg?.configured){error='Supabase connection has not been configured for this website. No real accounts or data are accessible yet.';return render()}
+ if(recovery.active){await recovery.bootstrap();return render()}
  try{const raw=sessionStorage.getItem('projectsControlSession');if(raw)auth=JSON.parse(raw);}catch{}
  if(auth){try{await ready()}catch(e){if([401,403].includes(e.status))logout(false);else error=e.message||'Unable to load projects';}}
  render();
@@ -89,7 +92,7 @@ async function loadAdmin(){
 }
 function setError(err){error=String(err?.message||err||'Unknown error');notice='';render()}
 function showNotice(msg){error='';notice=msg;render()}
-function loginView(){return `<div class="login-wrap"><section class="login-card"><div class="login-logo"><span class="brandmark">P</span><div class="brandname">Projects Control<small>SECURE MANAGEMENT PORTAL</small></div></div><h1 class="login-title">${cfg?.configured?'Welcome back':'Private configuration required'}</h1><p class="login-desc">${cfg?.configured?'Sign in to manage your projects.':'Please contact your administrator to configure sign-in.'}</p>${error?`<div class="error-box" role="alert">${h(error)}</div>`:''}${cfg?.configured?`<form id="login-form"><div class="login-field"><label for="email">Work email</label><input type="email" id="email" name="email" autocomplete="username" placeholder="name@company.com" required></div><div class="login-field"><label for="password">Password</label><input id="password" type="password" name="password" autocomplete="current-password" required></div><button class="btn primary login-button" type="submit">Secure sign in</button></form>`:`<div class="read-only-note">Please contact your administrator for account access.</div>`}</section></div>`}
+function loginView(){if(recovery.active)return recovery.view();return `<div class="login-wrap"><section class="login-card"><div class="login-logo"><span class="brandmark">P</span><div class="brandname">Projects Control<small>SECURE MANAGEMENT PORTAL</small></div></div><h1 class="login-title">${cfg?.configured?'Welcome back':'Private configuration required'}</h1><p class="login-desc">${cfg?.configured?'Sign in to manage your projects.':'Please contact your administrator to configure sign-in.'}</p>${error?`<div class="error-box" role="alert">${h(error)}</div>`:''}${cfg?.configured?`<form id="login-form"><div class="login-field"><label for="email">Work email</label><input type="email" id="email" name="email" autocomplete="username" placeholder="name@company.com" required></div><div class="login-field"><label for="password">Password</label><input id="password" type="password" name="password" autocomplete="current-password" required></div><button class="btn primary login-button" type="submit">Secure sign in</button></form><div class="recovery-footer"><button type="button" class="recovery-link" data-action="recovery-open">Forgot password or need to set one?</button></div>`:`<div class="read-only-note">Please contact your administrator for account access.</div>`}</section></div>`}
 const financialSections=[
  ['project-monthly-budget','Monthly Budget'],
  ['project-cost-budget','Detailed Budget (COGS)'],
@@ -246,6 +249,8 @@ ROOT.addEventListener('click',async e=>{
   return;
  }
  const action=el.dataset.action;
+ if(action==='recovery-open'){if(!me)recovery.open();return;}
+ if(action==='recovery-back'){if(!me)recovery.back();return;}
  if(action==='financial-section'){
   if(!await canLeaveCreate())return;
   const destination=financialSections.find(([id])=>id===el.dataset.section);
@@ -309,6 +314,9 @@ ROOT.addEventListener('change',async e=>{
 
 });
 ROOT.addEventListener('submit',async e=>{
+ if(['recovery-request-form','recovery-set-form'].includes(e.target.id)){
+  e.preventDefault();await recovery.submit(e.target);return;
+ }
  if(!['login-form','edit-form'].includes(e.target.id))return;e.preventDefault();clearToast();
  if(e.target.id==='login-form'){const f=new FormData(e.target);try{await login(String(f.get('email')||'').trim(),String(f.get('password')||''));render()}catch(err){setError(err)}return}
  
