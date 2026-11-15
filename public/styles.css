@@ -802,3 +802,81 @@ html,body,.app,.main,.content{background:#FFFFFF}
  font-variant-numeric:tabular-nums;
  overflow-wrap:anywhere;
 }
+
+
+/* Phase 4 Overview: compact visual budget control dashboard; detailed tables remain in Financials. */
+.dashboard-financial-overview{display:grid;gap:14px;margin-bottom:17px}
+.dashboard-financial-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin:1px 0 0}
+.dashboard-financial-heading h2{margin:0;color:#223246;font-size:19px;line-height:1.3;font-weight:760}
+.dashboard-financial-grid{display:grid;grid-template-columns:minmax(0,2.35fr) minmax(245px,.77fr);gap:12px;align-items:start;min-width:0}
+.dashboard-budget-groups{min-width:0;display:grid;gap:12px}
+.dashboard-budget-group{display:grid;grid-template-columns:minmax(0,1.03fr) minmax(0,1.12fr);gap:12px;align-items:stretch;min-width:0}
+.dashboard-budget-distribution{min-width:0;padding:15px;box-shadow:none}
+.dashboard-budget-distribution h3,.dashboard-project-ends h3{font-size:14px;font-weight:750;margin:0 0 12px;color:#24374B;line-height:1.35}
+.dashboard-budget-distribution-body{display:flex;align-items:center;flex-wrap:wrap;gap:8px;min-width:0}
+.dashboard-donut-wrapper{position:relative;flex:0 0 190px;width:190px;height:215px;min-width:0}
+.dashboard-donut{width:100%;height:215px!important;min-width:0}
+.dashboard-donut-center{position:absolute;pointer-events:none;left:50%;top:50%;transform:translate(-50%,-50%);max-width:95px;text-align:center;display:grid;gap:3px;color:#193754}
+.dashboard-donut-center strong{font-size:12px;line-height:1.3;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.dashboard-donut-center small{font-size:10px;color:#617589;font-weight:650}
+.dashboard-budget-legend{flex:1 1 145px;min-width:0;list-style:none;padding:0;margin:0;display:grid;gap:0}
+.dashboard-budget-legend li{display:grid;grid-template-columns:9px minmax(0,1fr) auto;gap:5px 7px;align-items:center;padding:7px 0;border-bottom:1px solid #EDF1F6;min-width:0}
+.dashboard-budget-legend li:last-child{border:0}
+.dashboard-legend-swatch{width:9px;height:9px;border-radius:3px}
+.dashboard-legend-project{font-size:11px;font-weight:700;color:#25394E;line-height:1.25;overflow-wrap:anywhere}
+.dashboard-budget-legend strong{grid-column:2;font-size:10.5px;font-weight:700;color:#264B72;font-variant-numeric:tabular-nums;line-height:1.25}
+.dashboard-budget-legend small{grid-column:3;grid-row:1 / 3;font-size:10.5px;color:#607992;font-weight:650}
+.dashboard-budget-comparison{min-width:0;align-self:stretch}
+.dashboard-budget-comparison .v7-chart-panel{margin:0;height:100%;padding:15px;box-shadow:none;min-width:0}
+.dashboard-budget-comparison .v7-chart-panel h3{font-size:14px;margin:0 0 9px}
+.dashboard-budget-comparison .v7-chart{min-height:280px;height:300px}
+.dashboard-budget-comparison .v7-chart-note{display:none}
+.dashboard-project-ends{box-shadow:none;min-width:0;padding:15px}
+.dashboard-project-ends ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.dashboard-project-ends li{display:grid;grid-template-columns:minmax(0,1fr);gap:4px;padding:7px 9px;border:1px solid #E0E9F3;border-radius:7px;background:#FAFCFF}
+.dashboard-project-ends li span{font-size:11.5px;color:#253B51;font-weight:650;overflow-wrap:anywhere;line-height:1.3}
+.dashboard-project-ends li strong{display:inline-block;justify-self:start;border-radius:5px;background:#DFEFFD;color:#164775;padding:4px 7px;font-size:11px;line-height:1.2;font-weight:740}
+.dashboard-timeline{box-shadow:none;min-width:0;padding:15px}
+.dashboard-timeline-header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.dashboard-timeline-header h2{margin:0}
+.dashboard-timeline-header>span{font-size:11px;color:#687C8F}
+.dashboard-timeline-scroll{max-width:100%;overflow-x:auto}
+.dashboard-timeline-grid{min-width:795px}
+.dashboard-timeline-head,.dashboard-timeline-line{display:grid;grid-template-columns:minmax(160px,1.7fr) minmax(420px,4.7fr) minmax(116px,1fr);align-items:stretch;min-width:0}
+.dashboard-timeline-head{background:#154573;color:#FFFFFF;min-height:32px;font-weight:730;font-size:11.5px}
+.dashboard-timeline-head>span{padding:7px 10px}
+.dashboard-timeline-head>span:last-child{text-align:right}
+.dashboard-timeline-months,.dashboard-timeline-cells{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));min-width:0}
+.dashboard-timeline-months span{display:grid;place-items:center;border-left:1px solid rgba(255,255,255,.22);font-size:10px}
+.dashboard-timeline-line{min-height:36px;border-bottom:1px solid #E1EAF3}
+.dashboard-timeline-line:nth-child(odd){background:#F7FAFE}
+.dashboard-timeline-project{padding:8px 10px;color:#263D54;font-size:11.5px;line-height:1.35;font-weight:680;overflow-wrap:anywhere}
+.dashboard-timeline-cells{gap:2px;padding:7px 2px}
+.dashboard-timeline-cell{background:#E8EEF5;border-radius:2px;min-height:19px}
+.dashboard-timeline-cell.is-funded{background:linear-gradient(180deg,#68AEF2,#2F79B6)}
+.dashboard-timeline-end{padding:8px 6px;text-align:right;font-size:11px;font-weight:700;color:#1F5282;line-height:1.35;overflow-wrap:anywhere}
+.dashboard-financial-overview + .grid-two.v4-grid{margin-top:14px}
+@media(max-width:1360px){
+ .dashboard-financial-grid{grid-template-columns:minmax(0,1fr)}
+ .dashboard-project-ends ul{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:1080px){
+ .dashboard-budget-group{grid-template-columns:minmax(0,1fr)}
+ .dashboard-budget-distribution-body{justify-content:flex-start}
+ .dashboard-budget-legend{flex-basis:260px}
+}
+@media(max-width:680px){
+ .dashboard-financial-heading{align-items:flex-start}
+ .dashboard-financial-heading h2{font-size:17px}
+ .dashboard-budget-distribution,.dashboard-project-ends,.dashboard-timeline{padding:12px}
+ .dashboard-project-ends ul{grid-template-columns:1fr}
+ .dashboard-budget-distribution-body{gap:12px}
+ .dashboard-budget-legend{flex-basis:150px}
+ .dashboard-budget-comparison .v7-chart{min-height:260px;height:275px}
+}
+@media print{
+ .dashboard-financial-grid,.dashboard-budget-group{display:block}
+ .dashboard-budget-distribution,.dashboard-budget-comparison,.dashboard-project-ends{margin-bottom:12px}
+ .dashboard-timeline-scroll{overflow:visible}
+ .dashboard-timeline-grid{min-width:0}
+}
