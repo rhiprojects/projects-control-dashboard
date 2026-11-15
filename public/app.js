@@ -166,7 +166,12 @@ async function v7RenderCharts(){
     animation:false,
     color:colors,
     textStyle:{color:'#3A4061'},
-    tooltip:{trigger:'axis',valueFormatter:v=>Number(v).toLocaleString('en-US',{maximumFractionDigits:2})+(data.currency?' '+data.currency:'')},
+    tooltip:{
+     trigger:'axis',backgroundColor:'#F4F6FB',borderColor:'#B3C0DD',
+     textStyle:{color:'#3A4061'},
+     axisPointer:{lineStyle:{color:'#B3C0DD'},shadowStyle:{color:'#DBE2F2'}},
+     valueFormatter:v=>Number(v).toLocaleString('en-US',{maximumFractionDigits:2})+(data.currency?' '+data.currency:'')
+    },
     legend:{top:0,type:'scroll',textStyle:{color:'#3A4061'}},
     grid:horizontal?{left:24,right:32,top:48,bottom:42,containLabel:true}:{left:16,right:22,top:48,bottom:48,containLabel:true},
     xAxis:horizontal?{
