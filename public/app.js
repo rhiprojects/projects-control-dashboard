@@ -36,7 +36,7 @@ async function init(){
  render();
 }
 const saveAuth=()=>{if(auth)sessionStorage.setItem('projectsControlSession',JSON.stringify(auth));else sessionStorage.removeItem('projectsControlSession')};
-function logout(refresh=true){auth=null;me=null;projects=[];dashboardV5={budgetLines:[],monthlyBudgets:[],actuals:[],assignments:[],people:[]};adminData={users:[],assignments:[]};page='overview';chosen=null;edit=false;chatV4=[];detailsV4=null;creatingV4=false;pendingV4=null;suggestionsV4={};saveAuth();if(refresh)render()}
+function logout(refresh=true){auth=null;me=null;projects=[];dashboardV5={budgetLines:[],monthlyBudgets:[],actuals:[],assignments:[],people:[]};adminData={users:[],assignments:[]};page='overview';chosen=null;edit=false;chatV4=[];aiClarificationV4=null;detailsV4=null;creatingV4=false;pendingV4=null;suggestionsV4={};saveAuth();if(refresh)render()}
 async function refreshToken(){if(!auth?.refresh_token)return false;
  const r=await fetch(cfg.supabaseUrl+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:cfg.publishableKey,'content-type':'application/json'},body:JSON.stringify({refresh_token:auth.refresh_token})});
  if(!r.ok){logout(false);return false}auth=await r.json();saveAuth();return true;
@@ -53,7 +53,7 @@ async function login(email,password){
  const r=await fetch(cfg.supabaseUrl+'/auth/v1/token?grant_type=password',{method:'POST',headers:{apikey:cfg.publishableKey,'content-type':'application/json'},body:JSON.stringify({email,password})});
  let v={};try{v=await r.json()}catch{}
  if(!r.ok||!v.access_token)throw Error('Sign-in failed. Check your email, password and account activation.');
- chatV4=[];detailsV4=null;pendingV4=null;auth=v;saveAuth();try{await ready()}catch(e){logout(false);throw e}
+ chatV4=[];aiClarificationV4=null;detailsV4=null;pendingV4=null;auth=v;saveAuth();try{await ready()}catch(e){logout(false);throw e}
 }
 async function ready(){const s=await api('/api/session');me=s;const r=await api('/api/projects');projects=r.projects||[];await loadDashboardV5();if(admin())await loadAdmin();}
 async function loadDashboardV5(){try{dashboardV5=await api('/api/dashboard')}catch{dashboardV5={budgetLines:[],monthlyBudgets:[],actuals:[],assignments:[],people:[]}}}
@@ -103,7 +103,7 @@ ROOT.addEventListener('submit',async e=>{
   try{const response=await api('/api/projects/'+encodeURIComponent(p.id),{method:'PUT',body:{lastEdited:p.lastEdited,changes}});const index=projects.findIndex(q=>q.id===p.id);if(index>=0)projects[index]=response.project;edit=false;showNotice(response.warning||`Project ${p.id} updated in Supabase.`)}catch(err){setError(err)}
  }
 });
-let creatingV4=false, detailsV4=null, chatV4=[],chatBusyV4=false,pendingV4=null,suggestionsV4={};
+let creatingV4=false, detailsV4=null, chatV4=[],chatBusyV4=false,aiClarificationV4=null,pendingV4=null,suggestionsV4={};
 function aiPanelV4(){
  const topics=[["Projects","How many projects can I access?"],["Financials","What are my projects' 2027 budgets?"],["Progress","What is the latest physical progress of my projects?"],["Contracts","What contract details are available?"],["Dates","When are my projects scheduled to finish?"],["Owners","Who is responsible for my projects?"]];
  return `<section class="card ai-card-v4"><div class="ai-top-v4"><h2>AI Assistant</h2><button type="button" title="Clear Chat" aria-label="Clear Chat" class="ai-menu-v4" data-v4="clear">⋮</button></div><div class="ai-orb-v4" aria-hidden="true">${ico("assistant")}</div><h3 class="ai-heading-v4">What Can I Help With?</h3><div class="ai-topics-v4">${topics.map(([label,question])=>`<button type="button" data-v4="prompt" data-question="${h(question)}">${label}</button>`).join("")}</div>${chatV4.length?`<div class="ai-chat-v4">${chatV4.map(x=>`<p class="${x.role==='user'?'my-question':''}">${h(x.content)}</p>`).join('')}</div>`:''}<form id="ai-v4" class="ai-input-v4"><span aria-hidden="true">✣</span><input aria-label="Ask the AI Assistant" name="question" placeholder="Ask anything about your projects..." maxlength="1600" required><button ${chatBusyV4?'disabled':''}>↑ Send</button></form></section>`;
@@ -331,7 +331,7 @@ ROOT.addEventListener('click',async event=>{
  if(action==='cancel-edit'){edit=false;render();return;}
  if(action==='back'){chosen=null;detailsV4=null;edit=false;page='projects';render();return;}
  if(action==='prompt'){const input=document.querySelector('#ai-v4 input');if(input){input.value=button.dataset.question||'';input.focus();}return;}
- if(action==='clear'){chatV4=[];render();return;}
+ if(action==='clear'){chatV4=[];aiClarificationV4=null;render();return;}
  if(action==='file'||action==='pdf'){
   let tab=action==='pdf'?window.open('about:blank','_blank'):null;
   try{
@@ -406,7 +406,8 @@ ROOT.addEventListener('submit',async event=>{
   if(!question||chatBusyV4)return;
   const history=chatV4.slice(-6);chatV4.push({role:'user',content:question});
   chatBusyV4=true;render();
-  try{const data=await api('/api/assistant',{method:'POST',body:{question,history}});
+  try{const data=await api('/api/assistant',{method:'POST',body:{question,history,clarification:aiClarificationV4}});
+   aiClarificationV4=data.clarification||null;
    chatV4.push({role:'assistant',content:data.answer});}
   catch(err){chatV4.push({role:'assistant',content:err?.status===401?'Your session has expired. Please sign in again.':'Project information is temporarily unavailable. Please try again.'});}
   finally{chatBusyV4=false;render();}
