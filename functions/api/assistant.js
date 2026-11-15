@@ -157,8 +157,14 @@ function directAnswer(question,view,allProjects,people,assignments,unavailable=[
   const {project:p,contracts}=group;
   const who=(p.internal_owner||'Not assigned in portal');
   const members=p.team_members.length?p.team_members.join(', '):'No team assignments visible for this project';
-  if(p.code==='818.01'&&/manpower/i.test(q))
-   return 'Project 818.01 — WNCC Cement Mill: the separate 2027 Manpower budget is correctly recorded as 0 EGP. Personnel expenditure is budgeted under COGS – Personnel Costs, so adding a second manpower charge would double-count costs. This budget classification does not establish the actual number of employees working today.';
+  if(p.code==='818.01'&&/manpower/i.test(q)){
+   const manpower=group.categories.filter(x=>/^manpower$/i.test(x.category));
+   const personnel=group.categories.some(x=>/cogs.*personnel/i.test(x.category)&&num(x.approved)>0);
+   if(manpower.length&&personnel&&manpower.every(x=>num(x.approved)===0))
+    return 'Project 818.01 — WNCC Cement Mill: the separate 2027 Manpower budget is correctly recorded as 0 EGP. Personnel expenditure is budgeted under COGS - Personnel Costs, so adding a second manpower charge would double-count costs. This budget classification does not establish the actual number of employees working today.';
+   if(manpower.length)return 'Project 818.01 — recorded separate 2027 Manpower budget by currency: '+manpower.map(x=>x.period+' '+money(x.approved,x.currency)).join('; ')+'. This does not establish how many personnel are currently assigned.';
+   return 'Project 818.01 manpower category details cannot currently be confirmed from the available project cost records.';
+  }
   if(kind.schedule&&/end|finish|complet|deadline|due/i.test(q))
    return 'Project '+p.code+' — '+p.name+': current project and budget end is '+(p.current_project_end_month||absent)+(p.current_project_end_basis?' ('+p.current_project_end_basis+')':'')+'. The original planned finish date is '+emptyIfMissing(p.planned_finish)+', and the manager-updated forecast finish date is '+emptyIfMissing(p.forecast_finish)+'. Extending the period does not create or approve additional budget amounts.';
   if(kind.team&&!kind.finance&&!kind.schedule&&!kind.contract)
@@ -218,7 +224,7 @@ export function onRequestPost({request,env}){return handler(async()=>{
   rest(env,'project_users?select=id,display_name,role,active&limit=200',{token}),
   rest(env,'project_assignments?select=project_code,user_id&limit=2000',{token}),
   rest(env,'project_monthly_budgets?select=project_code,period_start,currency,baseline_amount,current_amount&order=period_start.asc&limit=2000',{token}),
-  kind.finance?rest(env,'project_budget_lines?select=project_code,period_start,category,detail,currency,baseline_amount,current_amount&limit=2000',{token}):Promise.resolve([]),
+  (kind.finance||/manpower|personnel/i.test(question))?rest(env,'project_budget_lines?select=project_code,period_start,category,detail,currency,baseline_amount,current_amount&limit=2000',{token}):Promise.resolve([]),
   kind.finance?rest(env,'project_pnl_actuals?select=project_code,period_start,account_name,currency,amount&limit=2000',{token}):Promise.resolve([]),
   kind.contract?rest(env,'project_documents?document_type=eq.contract&select=project_code,original_name,extraction_preview&limit=200',{token}):Promise.resolve([])
  ];
@@ -239,7 +245,7 @@ export function onRequestPost({request,env}){return handler(async()=>{
    project:projectLine(p,ownerName(p.internal_owner_id),teamMembers,monthRows),
    contracts,
    actuals:kind.finance?actuals.filter(x=>x.project_code===code).slice(0,100):[],
-   categories:kind.finance?Object.entries(lines.filter(x=>x.project_code===code&&String(x.period_start).startsWith('2027-')).reduce((map,x)=>{
+   categories:(kind.finance||/manpower|personnel/i.test(question))?Object.entries(lines.filter(x=>x.project_code===code&&String(x.period_start).startsWith('2027-')).reduce((map,x)=>{
     const key=x.category+' | '+x.currency+' | '+String(x.period_start).slice(0,7);
     const row=map[key]||(map[key]={category:x.category,currency:x.currency,period:String(x.period_start).slice(0,7),approved:0,working:0});
     if(num(x.baseline_amount)!==null)row.approved+=Number(x.baseline_amount);
