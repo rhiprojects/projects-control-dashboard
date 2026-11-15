@@ -933,3 +933,110 @@ html,body,.app,.main,.content{background:#FFFFFF}
  .topbar-ai button{width:33px}
  .topbar-ai input{font-size:12px;padding:0 3px}
 }
+
+
+/* Mobile portal UX — scoped presentation rules; preserve all financial and access logic. */
+@media(max-width:780px){
+ .main,.content,.dashboard-financial-overview,.dashboard-budget-groups,.dashboard-budget-group{min-width:0;max-width:100%}
+ .topbar{height:auto;min-height:60px;padding:7px 12px;gap:8px}
+ .mobile-menu.btn{min-height:44px;padding:8px 12px;white-space:nowrap}
+ .sidebar .nav button{min-height:44px}
+ .sidebar .nav-submenu button{min-height:44px}
+ .sidebar-close,.signout{min-height:44px}
+ .topbar-ai{min-width:0;max-width:100%;height:48px;padding:2px 2px 2px 10px;border-radius:10px}
+ .topbar-ai button{min-width:44px;min-height:44px;width:44px;height:44px;flex:none;border-radius:8px}
+ .topbar-ai input{font-size:16px;min-height:42px;line-height:1.25;padding:0 4px}
+ .ai-input-v4 button{min-height:44px;min-width:44px;padding:9px 13px}
+ .ai-input-v4 input{font-size:16px;min-height:44px;min-width:0}
+ .ai-topics-v4 button,.ai-menu-v4{min-height:44px}
+ .ai-chat-v4 .ai-message p{overflow-wrap:anywhere}
+ .btn,.btn.small,.portal-toolbar button,.projectfoot .btn{min-height:44px}
+ .form-actions .btn{min-height:44px}
+ .v4-formgrid input,.v4-formgrid select,.v4-formgrid textarea,
+ .form-grid input,.form-grid select,.form-grid textarea,
+ .portal-control input,.portal-control select,
+ .login-field input,.project-form-group textarea{
+  min-height:44px;min-width:0;max-width:100%;font-size:16px
+ }
+ .v4-formgrid input[type="file"],.form-grid input[type="file"]{width:100%;overflow-wrap:anywhere}
+ .v4-formgrid,.form-grid,.portal-toolbar,.project-form-group{min-width:0}
+ .table-wrap.portal-table{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin;overscroll-behavior-inline:contain}
+ .table-wrap.portal-table table{min-width:620px}
+ .table-wrap.portal-table th:first-child,.table-wrap.portal-table td:first-child{
+  position:sticky;left:0;z-index:2;background:#F8FBFF;
+  box-shadow:1px 0 0 #D9E3EE
+ }
+ .table-wrap.portal-table th:first-child{z-index:3;background:#EAF2F9;color:#213D57}
+ .table-wrap.portal-table td:first-child{font-weight:690}
+ .finance-section-picker,.financial-exact-summary,.portal-table{min-width:0;max-width:100%}
+ .v5-portfolio-item>strong,.v5-metrics strong{font-size:clamp(17px,5.1vw,22px);overflow-wrap:anywhere}
+ .v8-team-graph,.v8-team-members,.v8-member-item{min-width:0}
+ .v8-member-codes,.v8-member-top{overflow-wrap:anywhere}
+ .dashboard-budget-distribution-body{display:flex;flex-direction:column;align-items:stretch;gap:10px}
+ .dashboard-donut-wrapper{flex:0 0 auto;margin:0 auto;width:182px;height:200px}
+ .dashboard-donut{height:200px!important}
+ .dashboard-budget-legend{flex:0 1 auto;width:100%;max-width:100%}
+ .dashboard-budget-legend li{grid-template-columns:10px minmax(0,1fr) auto}
+ .dashboard-budget-legend .dashboard-legend-project{font-size:12px}
+ .dashboard-budget-legend strong{font-size:11.5px;overflow-wrap:anywhere}
+ .dashboard-budget-comparison .v7-chart-panel{min-width:0}
+ .dashboard-budget-comparison .v7-chart{max-width:100%}
+ .dashboard-project-ends li{min-width:0}
+}
+@media(max-width:640px){
+ .dashboard-timeline-scroll{max-width:100%;overflow-x:visible}
+ .dashboard-timeline-grid{min-width:0}
+ .dashboard-timeline-head{display:none}
+ .dashboard-timeline-line{
+  display:grid;grid-template-columns:minmax(0,1fr);gap:6px;
+  padding:0;margin:0 0 10px;border:1px solid #DDE8F2;
+  border-radius:10px;overflow:hidden;background:#FFFFFF
+ }
+ .dashboard-timeline-project{
+  font-size:12px;font-weight:750;line-height:1.4;
+  padding:10px 12px 4px;white-space:normal;overflow-wrap:anywhere
+ }
+ .dashboard-timeline-cells{
+  display:grid;grid-template-columns:repeat(6,minmax(0,1fr));
+  gap:5px;padding:2px 12px 4px
+ }
+ .dashboard-timeline-cell{
+  display:flex;flex-direction:column;align-items:stretch;justify-content:center;
+  min-height:45px;background:#F6F9FC;border:1px solid #E2EAF3;
+  border-radius:5px;padding:4px 3px;gap:5px
+ }
+ .dashboard-timeline-cell.is-funded{background:#EDF6FF;border-color:#B8D6ED}
+ .dashboard-timeline-cell::before{
+  content:attr(data-month);font-size:10px;line-height:1.1;font-weight:680;
+  color:#45637D;text-align:center
+ }
+ .dashboard-timeline-cell::after{
+  content:"";display:block;height:11px;border-radius:3px;
+  background:#E0E8F0
+ }
+ .dashboard-timeline-cell.is-funded::after{background:linear-gradient(180deg,#68AEF2,#2F79B6)}
+ .dashboard-timeline-end{
+  text-align:left;font-size:11px;line-height:1.4;font-weight:740;
+  color:#1F5282;padding:2px 12px 10px;overflow-wrap:anywhere
+ }
+ .dashboard-timeline-end::before{content:"Project end: ";color:#526E87;font-weight:600}
+ .dashboard-timeline-header{align-items:flex-start;gap:5px}
+ .dashboard-timeline-header>span{font-size:11px;line-height:1.4}
+ .dashboard-budget-comparison .v7-chart-panel{padding:10px}
+ .dashboard-budget-comparison .v7-chart{min-height:300px}
+ .dashboard-financial-heading h2{font-size:17px}
+ .pageheader .pagetitle{overflow-wrap:anywhere}
+ .projectcard,.v4-project-info,.v4-project-side{min-width:0}
+ .ai-topics-v4{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:380px){
+ .dashboard-timeline-cells{grid-template-columns:repeat(4,minmax(0,1fr))}
+ .topbar{padding:7px 9px;gap:6px}
+ .mobile-menu.btn{padding:8px 9px}
+ .topbar-ai{padding-left:7px}
+ .dashboard-donut-wrapper{width:164px;height:190px}
+ .dashboard-donut{height:190px!important}
+ .dashboard-donut-center{max-width:85px}
+ .dashboard-budget-legend li{gap:4px 5px}
+ .ai-topics-v4{gap:5px}
+}
