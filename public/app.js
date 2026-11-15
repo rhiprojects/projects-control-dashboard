@@ -97,7 +97,7 @@ function contractTotalLabel(currency){
  return recorded.length?fmt(recorded.reduce((sum,p)=>sum+p.contractValue,0)):'Not recorded';
 }
 const missing=(field)=>active().filter(p=>p[field]===null).length;
-function projectCard(p){return `<div class="card projectcard"><div class="projecttop"><div><div class="projectid">Project ${h(p.id)}</div><h3 class="projectname">${h(p.displayName||p.client||p.name)}</h3><p class="projectclient">${h(p.name)}</p></div><span class="pill ${p.status==='Active'?'green':'neutral'}">${h(p.status||'Not supplied')}</span></div><div class="projectstats"><span>Contract Value</span><strong>${h(moneyLabel(p.contractValue,p.contractCurrency))}</strong></div><div class="projectfoot"><span>Physical progress: <strong>${p.progress===null?'Not Recorded':h(p.progress)+'%'}</strong></span><button class="btn small" data-project="${h(p.id)}">Open Project</button></div></div>`}
+function projectCard(p){return `<div class="card projectcard"><div class="projecttop"><div><div class="projectid">Project ${h(p.id)}</div><h3 class="projectname">${h(p.displayName||p.client||p.name)}</h3><p class="projectclient">${h(p.name)}</p></div><span class="pill ${p.status==='Active'?'green':'neutral'}">${h(p.status||'Not supplied')}</span></div><div class="projectstats"><span>Contract Value</span><strong>${h(moneyLabel(p.contractValue,p.contractCurrency))}</strong></div><div class="projectfoot"><span>Physical progress: <strong>${p.progress===null?'Not Recorded':h(p.progress)+'%'}</strong></span><span class="project-end-note">End: ${h(projectEndLabel(p))}</span><button class="btn small" data-project="${h(p.id)}">Open Project</button></div></div>`}
 function syncMobileNav(focus){
  const sidebar=$('#workspace-sidebar'),trigger=$('.mobile-menu');
  if(!sidebar||!trigger)return;
@@ -280,7 +280,27 @@ function categoryBar(amount,maximum){
  return `<svg class="v5-track" viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden="true" focusable="false"><rect width="${width}" height="10"></rect></svg>`;
 }
 const v5Rows=id=>(dashboardV5.budgetLines||[]).filter(x=>x.project_code===id&&String(x.period_start).startsWith('2027-'));
-const v7MonthlyBudget=id=>(dashboardV5.monthlyBudgets||[]).filter(x=>x.project_code===id&&String(x.period_start).startsWith('2027-')).sort((a,b)=>String(a.period_start).localeCompare(String(b.period_start)));
+const v7MonthlyBudget=id=>(dashboardV5?.monthlyBudgets||[]).filter(x=>x.project_code===id&&String(x.period_start).startsWith('2027-')).sort((a,b)=>String(a.period_start).localeCompare(String(b.period_start)));
+
+// Manager-entered finish dates control the project/budget period.
+// Otherwise use the last month with a positive approved 2027 budget.
+// Do not fabricate a contractual day when only the month is known.
+function projectEndMonth(p){
+ if(!p)return null;
+ const entered=p.forecastFinish||p.baselineFinish;
+ if(typeof entered==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(entered))return entered.slice(0,7);
+ const funded=v7MonthlyBudget(p.id).filter(x=>{const a=v5Number(x.baseline_amount);return a!==null&&a>0;})
+  .map(x=>String(x.period_start).slice(0,7)).sort();
+ return funded.length?funded[funded.length-1]:null;
+}
+function projectEndLabel(p){
+ const period=projectEndMonth(p);
+ if(!period)return 'Not recorded';
+ const [year,month]=period.split('-').map(Number);
+ const label=new Intl.DateTimeFormat('en-GB',{month:'long',timeZone:'UTC'})
+  .format(new Date(Date.UTC(year,month-1,1)))+' '+year;
+ return label+(p.forecastFinish?' (revised finish)':p.baselineFinish?' (planned finish)':' (2027 budget-derived; exact date not recorded)');
+}
 const v7BudgetCurrency=id=>v7MonthlyBudget(id).find(x=>v5Number(x.baseline_amount)!==null&&Number(x.baseline_amount)!==0)?.currency||v7MonthlyBudget(id)[0]?.currency||null;
 const v7Total=(rows,key)=>{const valid=rows.filter(x=>v5Number(x[key])!==null);return valid.length?valid.reduce((n,x)=>n+Number(x[key]),0):null;};
 function v5Health(id,currency){
@@ -400,6 +420,10 @@ function v5FinancialPanel(p){
  const contractCurrency=p.contractCurrency;
  const allMonths=v7MonthlyBudget(p.id),currency=v7BudgetCurrency(p.id);
  const months=allMonths.filter(x=>x.currency===currency);
+ const endMonth=projectEndMonth(p);
+ const activeMonths=months.filter(x=>!endMonth||String(x.period_start).slice(0,7)<=endMonth);
+ const postEndMonths=months.filter(x=>endMonth&&String(x.period_start).slice(0,7)>endMonth);
+ const outsideManpower=v5Rows(p.id).filter(x=>endMonth&&String(x.period_start).slice(0,7)>endMonth&&/manpower/i.test(String(x.category))&&Number(x.baseline_amount)>0);
  const approved=v7Total(months,'baseline_amount'),working=v7Total(months,'current_amount');
  const included=new Set(months.filter(x=>v5Number(x.baseline_amount)!==null&&Number(x.baseline_amount)!==0).map(x=>String(x.period_start).slice(0,7)));
  const lines=v5Rows(p.id).filter(x=>x.currency===currency&&included.has(String(x.period_start).slice(0,7)));
@@ -415,13 +439,17 @@ function v5FinancialPanel(p){
  const categoriesAvailable=valid.length>0&&categoriesReconcile;
  const note=categoriesAvailable?'Category values reconcile with approved monthly budgets for the included scheduled months. These are budgeted reference costs.':'Category comparisons are withheld because the reference lines do not establish a reconciled breakdown of the scheduled monthly budget. The approved and working monthly budgets remain available below.';
  return '<section class="card panel v4-section v5-financial" aria-label="Financial analysis"><h2 class="paneltitle">Project Financial Analysis</h2><p class="v5-context">Original Contract Value is contractual and has no annual reporting period here. Approved and Working Project Budgets cover the available 2027 monthly records and include manpower and other costs. These measures retain their own currencies and do not establish actual revenue, incurred expenditure, or profit.</p>'+
+ '<p class="v5-context">Current project and budget end: '+h(projectEndLabel(p))+'. An extension does not automatically add budget amounts.</p>'+
+ (postEndMonths.length?'<p class="v5-context">'+postEndMonths.length+' post-end monthly rows are retained in the budget register for audit but omitted from the active-period chart and table.</p>':'')+
+ (outsideManpower.length?'<p class="v5-context" role="status">Review required: '+outsideManpower.map(x=>String(x.period_start).slice(0,7)+' Manpower reference '+v5Money(v5Number(x.baseline_amount),x.currency)).join('; ')+' falls after the project end. This entry has not been removed or reassigned.</p>':'')+
+ (p.id==='818.01'?'<p class="v5-context">Project 818.01: separate Manpower is correctly zero because personnel costs are included under COGS – Personnel Costs. Do not double-count personnel.</p>':'')+
  '<div class="v5-metrics"><div><small>'+moneyHeading('Original Contract Value',contractCurrency)+'</small><strong>'+v5Money(p.contractValue,contractCurrency)+'</strong><p class="financial-note">Contractual amount</p></div><div><small>'+moneyHeading('2027 Approved Project Budget',currency)+'</small><strong>'+v5Money(approved,currency)+'</strong><p class="financial-note">Approved forecast · 2027</p></div><div><small>'+moneyHeading('2027 Working Project Budget',currency)+'</small><strong>'+v5Money(working,currency)+'</strong><p class="financial-note">Working forecast · 2027</p></div><div><small>'+moneyHeading('Recorded P&L Margin',contractCurrency)+'</small><strong>'+v5Money(health?.margin??null,contractCurrency)+'</strong><p class="financial-note">Available recorded periods</p></div></div><p class="financial-note">'+h(marginContext(p))+'</p>'+
- v7Chart('2027 Monthly Project Budget — Approved vs Working'+(currency?' · '+currency:''),'bar',months.map(x=>String(x.period_start).slice(0,7)),[{name:'Approved Budget',values:months.map(x=>v5Number(x.baseline_amount))},{name:'Working Budget',values:months.map(x=>v5Number(x.current_amount))}],currency,{financial:true})+
+ v7Chart('2027 Monthly Project Budget — Approved vs Working'+(currency?' · '+currency:''),'bar',activeMonths.map(x=>String(x.period_start).slice(0,7)),[{name:'Approved Budget',values:activeMonths.map(x=>v5Number(x.baseline_amount))},{name:'Working Budget',values:activeMonths.map(x=>v5Number(x.current_amount))}],currency,{financial:true})+
  (categoriesAvailable?v7Chart('2027 Scheduled Costs By Category'+(currency?' · '+currency:''),'bar',totals.map(x=>x.category),[{name:'Scheduled Costs',values:totals.map(x=>x.amount)}],currency,{financial:true}):'')+
  '<p class="v5-context">'+h(note)+'</p>'+
  '<div class="v5-analysis-grid"><div><h3>Scheduled Costs By Category</h3><p class="v5-context">Budgeted reference costs for included scheduled months. Bar lengths are relative to the largest category; exact amounts are labeled.</p>'+
  (categoriesAvailable?totals.map(x=>'<div class="v5-bar-row"><div><span>'+h(x.category)+'</span><strong>'+fmt(x.amount)+' '+h(currency)+'</strong></div>'+categoryBar(x.amount,maximum)+'</div>').join(''):'<p>Category amounts are withheld pending reconciliation with the scheduled monthly budget.</p>')+
- '</div><div><h3>2027 Monthly Project Budget</h3>'+(months.length?'<div class="table-wrap"><table><thead><tr><th>Month</th><th>Approved</th><th>Working</th></tr></thead><tbody>'+months.map(x=>'<tr><td>'+h(String(x.period_start).slice(0,7))+'</td><td>'+v5Money(v5Number(x.baseline_amount),currency)+'</td><td>'+v5Money(v5Number(x.current_amount),currency)+'</td></tr>').join('')+'</tbody></table></div>':'<p>No 2027 monthly project budget recorded.</p>')+'</div></div></section>';
+ '</div><div><h3>2027 Monthly Project Budget</h3>'+(activeMonths.length?'<div class="table-wrap"><table><thead><tr><th>Month</th><th>Approved</th><th>Working</th></tr></thead><tbody>'+activeMonths.map(x=>'<tr><td>'+h(String(x.period_start).slice(0,7))+'</td><td>'+v5Money(v5Number(x.baseline_amount),currency)+'</td><td>'+v5Money(v5Number(x.current_amount),currency)+'</td></tr>').join('')+'</tbody></table></div>':'<p>No 2027 monthly project budget recorded.</p>')+'</div></div></section>';
 }
 function v5TeamPanel(){
  if(!lead())return '';
@@ -472,7 +500,7 @@ function v5Portfolio(){
 
 function overviewV4(){
  return heading("Overview",me.role==="head_of_projects"?cairoGreeting(me.displayName):`Welcome, ${me.displayName.split(' ')[0]}`,"Your projects at a glance.",'<button class="btn" data-action="reload">↻ Refresh</button>')+
- `<div class="cards">${kpi('Active Projects',String(active().length),'Active Projects','','projects')}${kpi('Original Contract Value · EGP',contractTotalLabel('EGP'),'Active projects · contractual amounts','blue','contract')}${kpi('Original Contract Value · USD',contractTotalLabel('USD'),'Active projects · contractual amounts','','money')}${kpi('Progress Not Recorded',String(missing('progress')),'Active Projects','amber','progress')}</div><div class="grid-two v4-grid"><section class="card panel"><div class="panelhead"><h2 class="paneltitle">Your Active Projects</h2><button class="btn small" data-page="projects">View all</button></div><ul class="list-naked">${active().map(p=>`<li><div><button class="plink" data-project="${h(p.id)}">${h(p.id)} · ${h(p.displayName||p.client)}</button><span class="subline">${h(p.status)} · ${h(p.contractCurrency)}</span></div>${dashboardV5?v5Arrow(p):''}</li>`).join('')}</ul></section>${aiPanelV4()}</div>${dashboardV5?v5TeamPanel()+v5Portfolio():dataStatus('Dashboard data',dashboardError,'retry-dashboard')}`;
+ `<div class="cards">${kpi('Active Projects',String(active().length),'Active Projects','','projects')}${kpi('Original Contract Value · EGP',contractTotalLabel('EGP'),'Active projects · contractual amounts','blue','contract')}${kpi('Original Contract Value · USD',contractTotalLabel('USD'),'Active projects · contractual amounts','','money')}${kpi('Progress Not Recorded',String(missing('progress')),'Active Projects','amber','progress')}</div><div class="grid-two v4-grid"><section class="card panel"><div class="panelhead"><h2 class="paneltitle">Your Active Projects</h2><button class="btn small" data-page="projects">View all</button></div><ul class="list-naked">${active().map(p=>`<li><div><button class="plink" data-project="${h(p.id)}">${h(p.id)} · ${h(p.displayName||p.client)}</button><span class="subline">${h(p.status)} · ${h(p.contractCurrency)} · End: ${h(projectEndLabel(p))}</span></div>${dashboardV5?v5Arrow(p):''}</li>`).join('')}</ul></section>${aiPanelV4()}</div>${dashboardV5?v5TeamPanel()+v5Portfolio():dataStatus('Dashboard data',dashboardError,'retry-dashboard')}`;
 }
 
 function createV4(){
@@ -487,7 +515,7 @@ function projectViewV4(){
  const owner=p.internalOwnerId===me.userId?me.displayName:!p.internalOwnerId?'Not assigned':
    d?.people?.find(u=>u.id===p.internalOwnerId)?.display_name||(d||detailsError?'Unavailable':'Loading…');
  return heading('Projects',`${h(p.id)} · ${h(p.displayName||p.client)}`,h(p.scope||''),`<button class="btn" data-v4="back">Back</button><button class="btn primary" data-v4="edit"${!d?' disabled':''}>Edit Project</button>`)+
- `<section class="card panel v4-section"><h2 class="paneltitle">Project Information</h2><div class="v4-facts">${line('Internal owner',owner)}${line('Client / contracting organization',p.client)}${line('Contract value',moneyLabel(p.contractValue,p.contractCurrency))}${line('Physical progress',p.progress===null?'Not recorded':p.progress+'%')}${line('Location',p.location)}${line('Start date',p.startDate)}${line('Planned finish',p.baselineFinish)}${line('Forecast finish',p.forecastFinish)}${line('Duration (months)',p.durationMonths)}</div></section>
+ `<section class="card panel v4-section"><h2 class="paneltitle">Project Information</h2><div class="v4-facts">${line('Internal owner',owner)}${line('Client / contracting organization',p.client)}${line('Contract value',moneyLabel(p.contractValue,p.contractCurrency))}${line('Physical progress',p.progress===null?'Not recorded':p.progress+'%')}${line('Location',p.location)}${line('Start date',p.startDate)}${line('Current project / budget end',projectEndLabel(p))}${line('Planned finish',p.baselineFinish)}${line('Forecast finish',p.forecastFinish)}${line('Duration (months)',p.durationMonths)}</div></section>
  ${d?projectTeamV4(d):dataStatus('Project details',detailsError,'retry-details')}
  ${dashboardV5?v5FinancialPanel(p):dataStatus('Project financial analysis',dashboardError,'retry-dashboard')}
  ${d?projectRecordsV4(d):''}`;
