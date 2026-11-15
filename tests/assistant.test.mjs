@@ -34,11 +34,12 @@ function setup({codes=['736','776'],failModel=false}={}){
   return Response.json(data);
  };
 }
-async function ask(q){
- const request=new Request('https://dashboard.example/api/assistant',{method:'POST',headers:{authorization:'Bearer valid.jwt.token','content-type':'application/json'},body:JSON.stringify({question:q})});
+async function chatTurn(question,clarification=null){
+ const request=new Request('https://dashboard.example/api/assistant',{method:'POST',headers:{authorization:'Bearer valid.jwt.token','content-type':'application/json'},body:JSON.stringify({question,clarification})});
  const response=await onRequestPost({request,env});assert.equal(response.status,200);
- return (await response.json()).answer;
+ return response.json();
 }
+async function ask(q){return (await chatTurn(q)).answer;}
 test('basic project answers work even without AI inference',async()=>{
  setup({failModel:true});
  assert.match(await ask('How many projects can I access?'),/2 projects/);
@@ -76,31 +77,67 @@ test('unauthenticated assistant access fails before reading records',async()=>{
  assert.equal(response.status,401);
 });
 
-test('which projects have losses is distinct from a monetary loss total',async()=>{
+test('loss-making projects question asks a gross/net clarification and remembers the question',async()=>{
  setup({failModel:true});
- const result=await ask('Which projects have losses?');
- assert.match(result,/cannot identify which projects have recorded losses/i);
- assert.match(result,/not currently present in the portal/i);
- assert.doesNotMatch(result,/0 EGP|zero losses/i);
+ const first=await chatTurn('Which projects have losses?');
+ assert.match(first.answer,/gross loss.*net loss/i);
+ assert.equal(first.clarification.kind,'loss_basis');
+ assert.equal(first.clarification.originalQuestion,'Which projects have losses?');
+ const next=await chatTurn('Gross loss',first.clarification);
+ assert.match(next.answer,/cannot identify which projects have recorded losses/i);
+ assert.match(next.answer,/gross-loss basis/i);
+ assert.match(next.answer,/not currently present in the portal/i);
+ assert.equal(next.clarification,undefined);
 });
-test('this-year incurred losses reports an unknown monetary amount, not zero or 2027 budget',async()=>{
+test('year-to-date incurred-loss amount remains distinct after clarification',async()=>{
  setup({failModel:true});
- const result=await ask('How many losses did I incur this year?');
+ const first=await chatTurn('How many losses did I incur this year?');
+ assert.match(first.answer,/gross loss.*net loss/i);
+ const next=await chatTurn('Net',first.clarification);
  const year=new Intl.DateTimeFormat('en-GB',{timeZone:'Africa/Cairo',year:'numeric'}).format(new Date());
- assert.match(result,new RegExp(year));
- assert.match(result,/how much loss was incurred/i);
- assert.match(result,/unknown, not zero/i);
- assert.doesNotMatch(result,/632,893|1,170,869/);
+ assert.match(next.answer,new RegExp(year));
+ assert.match(next.answer,/how much loss was incurred/i);
+ assert.match(next.answer,/net-loss basis/i);
+ assert.match(next.answer,/unknown, not zero/i);
+ assert.doesNotMatch(next.answer,/632,893|1,170,869/);
 });
-test('an explicit year overrides the current Cairo year',async()=>{
+test('explicit year in follow-up overrides original Cairo current-year request',async()=>{
  setup({failModel:true});
- const result=await ask('What was my total loss in 2025?');
- assert.match(result,/2025/);
- assert.doesNotMatch(result,/2027 projected budget cannot be treated as an actual loss.*2025/);
+ const first=await chatTurn('What was my total loss this year?');
+ const next=await chatTurn('Gross in 2025',first.clarification);
+ assert.match(next.answer,/2025/);
+ assert.match(next.answer,/gross-loss basis/i);
+});
+test('both is a valid clarification and never creates invented loss amounts',async()=>{
+ setup({failModel:true});
+ const first=await chatTurn('What are our losses this year?');
+ const next=await chatTurn('Both',first.clarification);
+ assert.match(next.answer,/both gross and net loss/i);
+ assert.match(next.answer,/unknown, not zero/i);
+});
+test('a new unrelated question cancels the pending loss clarification',async()=>{
+ setup({failModel:true});
+ const first=await chatTurn('Which projects have losses?');
+ const next=await chatTurn('How many projects can I access?',first.clarification);
+ assert.match(next.answer,/2 projects/);
+ assert.equal(next.clarification,undefined);
+});
+test('cancelling clarification does not evaluate a loss or alter data',async()=>{
+ setup({failModel:true});
+ const first=await chatTurn('Which projects have losses?');
+ const next=await chatTurn('Cancel',first.clarification);
+ assert.match(next.answer,/set aside that question/i);
+ assert.equal(next.clarification,undefined);
+});
+test('gross/net accounting basis already in the question needs no follow-up',async()=>{
+ setup({failModel:true});
+ const next=await chatTurn('Which projects had gross losses in 2025?');
+ assert.match(next.answer,/gross-loss basis/i);
+ assert.equal(next.clarification,undefined);
 });
 test('negative budget is not treated as recorded financial loss',async()=>{
  setup({failModel:true});
  const result=await ask('Which project is losing money based on the budget?');
- assert.match(result,/cannot identify which projects have recorded losses/i);
+ assert.match(result,/gross loss.*net loss/i);
  assert.doesNotMatch(result,/project 776 .*loss-making/i);
 });
