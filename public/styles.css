@@ -467,3 +467,10 @@ svg.v5-track{display:block;width:100%}
  .portal-toolbar .portal-control,.portal-toolbar .portal-control:first-child{flex:1 1 100%;max-width:none}
  .portal-table td,.portal-table th{padding:9px 12px}
 }
+
+/* Edit-project save feedback stays beside Save, not at the top of the page. */
+.edit-save-actions{align-items:center;flex-wrap:wrap;gap:10px}
+.edit-save-feedback{min-width:0;flex:1 1 260px}
+.edit-save-feedback .edit-save-error{color:#a61b1b;background:#fff3f3;border:1px solid #e9a1a1;border-left:4px solid #bd2222;font-weight:600;margin:0;padding:8px 12px}
+.edit-save-feedback .portal-form-status{margin:0}
+@media(max-width:560px){.edit-save-feedback{width:100%;flex:1 1 auto}}
