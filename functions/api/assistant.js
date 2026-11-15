@@ -101,11 +101,11 @@ function lossAnswer(question,view,unavailable,basis=null){
  }
  if(!currentRows.length){
    if(intent==='projects')
-     return 'I cannot identify which projects have recorded losses '+period+'. The project P&L actuals needed to determine profit or loss are not currently present in the portal. This does not mean that no projects made losses.';
-   return 'I cannot determine how much loss was incurred '+period+'. The recorded project P&L actuals needed to calculate an actual loss amount are not currently present in the portal. The loss is unknown, not zero. The 2027 projected budget cannot be treated as an actual loss.';
+     return 'I cannot identify which projects have recorded losses '+period+' '+basisPhrase+'. The project P&L actuals needed to determine profit or loss are not currently present in the portal. This does not mean that no projects made losses.';
+   return 'I cannot determine how much loss was incurred '+period+' '+basisPhrase+'. The recorded project P&L actuals needed to calculate an actual loss amount are not currently present in the portal. The loss is unknown, not zero. The 2027 projected budget cannot be treated as an actual loss.';
  }
  // Do not create a new accounting policy: gross loss vs net loss must be approved.
- return 'Historical P&L entries are available '+period+', but a reliable loss calculation still requires an agreed definition of "loss" (gross loss from revenue less COGS, or net loss including overheads). I cannot label a project as loss-making or calculate an incurred-loss total until that basis and the records are confirmed.';
+ return 'Historical P&L entries are available '+period+' '+basisPhrase+', but a reliable loss result still requires complete actuals and validated accounting treatment. I cannot yet label a project loss-making or claim a total loss amount.';
 }
 function directAnswer(question,view,allProjects,people,assignments,unavailable=[],basis=null){
  const q=low(question),kind=classify(q);
