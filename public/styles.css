@@ -310,7 +310,7 @@ html,body,.app,.main,.content{background:#FFFFFF}
  backface-visibility:visible;
 }
 .ai-matrix-dot-v9{
- transform:translate3d(var(--cx),var(--cy),var(--cz));
+ transform:translateZ(var(--cz));
  opacity:var(--op);
  transition:transform .85s cubic-bezier(.16,.82,.26,1),opacity .5s ease;
 }
@@ -325,7 +325,7 @@ html,body,.app,.main,.content{background:#FFFFFF}
  height:2.8px;
  background:#7B88B6;
  box-shadow:0 0 5px rgba(58,64,97,.22);
- transform:translate3d(var(--rx),var(--ry),0);
+ transform:translateZ(0);
  opacity:.92;
 }
 .ai-matrix-glow-v9{
@@ -354,7 +354,7 @@ html,body,.app,.main,.content{background:#FFFFFF}
 }
 .ai-matrix-v9[data-state="working"] .ai-matrix-dot-v9,
 .ai-matrix-v9[data-state="success"] .ai-matrix-dot-v9{
- transform:translate3d(var(--sx),var(--sy),var(--sz));
+ transform:translate3d(calc(var(--sx) - var(--cx)),calc(var(--sy) - var(--cy)),var(--sz));
  opacity:var(--op);
 }
 .ai-matrix-v9[data-state="working"] .ai-matrix-ring-v9{
@@ -396,9 +396,9 @@ html,body,.app,.main,.content{background:#FFFFFF}
  to{transform:rotateX(20deg) rotateY(38deg) rotateZ(7deg) scale(1.035)}
 }
 @keyframes ai-v9-bubble{
- 0%,100%{transform:translate3d(var(--sx),var(--sy),var(--sz)) scale(.85);opacity:var(--op)}
- 43%{transform:translate3d(var(--bx),var(--by),var(--bz)) scale(1.4);opacity:1}
- 68%{transform:translate3d(var(--sx),var(--sy),var(--sz)) scale(1.01);opacity:.88}
+ 0%,100%{transform:translate3d(calc(var(--sx) - var(--cx)),calc(var(--sy) - var(--cy)),var(--sz)) scale(.85);opacity:var(--op)}
+ 43%{transform:translate3d(calc(var(--bx) - var(--cx)),calc(var(--by) - var(--cy)),var(--bz)) scale(1.4);opacity:1}
+ 68%{transform:translate3d(calc(var(--sx) - var(--cx)),calc(var(--sy) - var(--cy)),var(--sz)) scale(1.01);opacity:.88}
 }
 @keyframes ai-v9-working-orbit{
  from{transform:rotateX(-20deg) rotateY(25deg) rotateZ(0deg)}
@@ -434,7 +434,7 @@ html,body,.app,.main,.content{background:#FFFFFF}
  .ai-matrix-v9[data-state="thinking"] .ai-matrix-dot-v9,
  .ai-matrix-v9[data-state="working"] .ai-matrix-dot-v9,
  .ai-matrix-v9[data-state="success"] .ai-matrix-dot-v9{
-  transform:translate3d(var(--sx),var(--sy),var(--sz));
+  transform:translate3d(calc(var(--sx) - var(--cx)),calc(var(--sy) - var(--cy)),var(--sz));
  }
 }
 @media (max-width:560px){
