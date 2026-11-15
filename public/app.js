@@ -36,7 +36,7 @@ async function init(){
  render();
 }
 const saveAuth=()=>{if(auth)sessionStorage.setItem('projectsControlSession',JSON.stringify(auth));else sessionStorage.removeItem('projectsControlSession')};
-function logout(refresh=true){auth=null;me=null;projects=[];dashboardV5={budgetLines:[],monthlyBudgets:[],actuals:[],assignments:[],people:[]};adminData={users:[],assignments:[]};page='overview';chosen=null;edit=false;chatV4=[];aiClarificationV4=null;detailsV4=null;creatingV4=false;pendingV4=null;suggestionsV4={};saveAuth();if(refresh)render()}
+function logout(refresh=true){aiCancelV9();auth=null;me=null;projects=[];dashboardV5={budgetLines:[],monthlyBudgets:[],actuals:[],assignments:[],people:[]};adminData={users:[],assignments:[]};page='overview';chosen=null;edit=false;chatV4=[];aiClarificationV4=null;detailsV4=null;creatingV4=false;pendingV4=null;suggestionsV4={};saveAuth();if(refresh)render()}
 async function refreshToken(){if(!auth?.refresh_token)return false;
  const r=await fetch(cfg.supabaseUrl+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:cfg.publishableKey,'content-type':'application/json'},body:JSON.stringify({refresh_token:auth.refresh_token})});
  if(!r.ok){logout(false);return false}auth=await r.json();saveAuth();return true;
@@ -53,7 +53,7 @@ async function login(email,password){
  const r=await fetch(cfg.supabaseUrl+'/auth/v1/token?grant_type=password',{method:'POST',headers:{apikey:cfg.publishableKey,'content-type':'application/json'},body:JSON.stringify({email,password})});
  let v={};try{v=await r.json()}catch{}
  if(!r.ok||!v.access_token)throw Error('Sign-in failed. Check your email, password and account activation.');
- chatV4=[];aiClarificationV4=null;detailsV4=null;pendingV4=null;auth=v;saveAuth();try{await ready()}catch(e){logout(false);throw e}
+ aiCancelV9();chatV4=[];aiClarificationV4=null;detailsV4=null;pendingV4=null;auth=v;saveAuth();try{await ready()}catch(e){logout(false);throw e}
 }
 async function ready(){const s=await api('/api/session');me=s;const r=await api('/api/projects');projects=r.projects||[];await loadDashboardV5();if(admin())await loadAdmin();}
 async function loadDashboardV5(){try{dashboardV5=await api('/api/dashboard')}catch{dashboardV5={budgetLines:[],monthlyBudgets:[],actuals:[],assignments:[],people:[]}}}
@@ -104,9 +104,37 @@ ROOT.addEventListener('submit',async e=>{
  }
 });
 let creatingV4=false, detailsV4=null, chatV4=[],chatBusyV4=false,aiClarificationV4=null,pendingV4=null,suggestionsV4={};
+// v10: simple, always-visible SVG dot globe. Positions are SVG coordinates,
+// not CSS transforms; the globe remains visible when motion is unavailable.
+let aiRequestNonceV9=0;
+function aiCancelV9(){++aiRequestNonceV9;chatBusyV4=false;}
+function aiBeginV9(){return ++aiRequestNonceV9;}
+function aiSimpleOrbV10(){
+ const N=156,center=72,radius=49,goldenAngle=Math.PI*(3-Math.sqrt(5));
+ const dots=[];
+ for(let i=0;i<N;i++){
+  const depth=1-2*(i+.5)/N;
+  const ringRadius=Math.sqrt(1-depth*depth);
+  const theta=i*goldenAngle;
+  const x=center+Math.cos(theta)*ringRadius*radius;
+  const y=center+Math.sin(theta)*ringRadius*radius;
+  const brightness=(depth+1)/2;
+  const r=(0.75+0.70*brightness).toFixed(2);
+  const op=(.30+.64*brightness).toFixed(2);
+  const sparkle=i%13===0;
+  const delay=-(i%17)*.41;
+  dots.push('<circle class="ai-orb-dot-v10'+(sparkle?' ai-orb-spark-v10':'')+
+   '" cx="'+x.toFixed(2)+'" cy="'+y.toFixed(2)+'" r="'+r+
+   '" fill="'+(brightness>.48?'#3A4061':'#7B88B6')+
+   '" opacity="'+op+'"'+(sparkle?' style="--spark-delay:'+delay.toFixed(2)+'s;--base-opacity:'+op+'"':'')+' />');
+ }
+ return '<div class="ai-orb-v10" aria-hidden="true"><svg class="ai-orb-svg-v10" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 144 144" focusable="false"><g class="ai-orb-rotate-v10">'+dots.join('')+'</g></svg></div>'+
+ '<span class="ai-orb-status-v10" role="status" aria-live="polite">'+(chatBusyV4?'Assistant retrieving a response':'AI Assistant ready')+'</span>';
+}
+
 function aiPanelV4(){
  const topics=[["Projects","How many projects can I access?"],["Financials","What are my projects' 2027 budgets?"],["Progress","What is the latest physical progress of my projects?"],["Contracts","What contract details are available?"],["Dates","When are my projects scheduled to finish?"],["Owners","Who is responsible for my projects?"]];
- return `<section class="card ai-card-v4"><div class="ai-top-v4"><h2>AI Assistant</h2><button type="button" title="Clear Chat" aria-label="Clear Chat" class="ai-menu-v4" data-v4="clear">⋮</button></div><div class="ai-orb-v4" aria-hidden="true">${ico("assistant")}</div><h3 class="ai-heading-v4">What Can I Help With?</h3><div class="ai-topics-v4">${topics.map(([label,question])=>`<button type="button" data-v4="prompt" data-question="${h(question)}">${label}</button>`).join("")}</div>${chatV4.length?`<div class="ai-chat-v4">${chatV4.map(x=>`<p class="${x.role==='user'?'my-question':''}">${h(x.content)}</p>`).join('')}</div>`:''}${aiClarificationV4?.kind==='loss_basis'?`<div class="ai-topics-v4" aria-label="Choose how to define loss"><button type="button" data-v4="clarify" data-choice="Gross loss">Gross loss</button><button type="button" data-v4="clarify" data-choice="Net loss">Net loss</button><button type="button" data-v4="clarify" data-choice="Both">Both</button></div>`:''}<form id="ai-v4" class="ai-input-v4"><span aria-hidden="true">✣</span><input aria-label="Ask the AI Assistant" name="question" placeholder="Ask anything about your projects..." maxlength="1600" required><button ${chatBusyV4?'disabled':''}>↑ Send</button></form></section>`;
+ return `<section class="card ai-card-v4"><div class="ai-top-v4"><h2>AI Assistant</h2><button type="button" title="Clear Chat" aria-label="Clear Chat" class="ai-menu-v4" data-v4="clear">⋮</button></div>${aiSimpleOrbV10()}<h3 class="ai-heading-v4">What Can I Help With?</h3><div class="ai-topics-v4">${topics.map(([label,question])=>`<button type="button" data-v4="prompt" data-question="${h(question)}">${label}</button>`).join("")}</div>${chatV4.length?`<div class="ai-chat-v4">${chatV4.map(x=>`<p class="${x.role==='user'?'my-question':''}">${h(x.content)}</p>`).join('')}</div>`:''}${aiClarificationV4?.kind==='loss_basis'?`<div class="ai-topics-v4" aria-label="Choose how to define loss"><button type="button" data-v4="clarify" data-choice="Gross loss">Gross loss</button><button type="button" data-v4="clarify" data-choice="Net loss">Net loss</button><button type="button" data-v4="clarify" data-choice="Both">Both</button></div>`:''}<form id="ai-v4" class="ai-input-v4"><span aria-hidden="true">✣</span><input aria-label="Ask the AI Assistant" name="question" placeholder="Ask anything about your projects..." maxlength="1600" required><button ${chatBusyV4?'disabled':''}>↑ Send</button></form></section>`;
 }
 
 
@@ -130,10 +158,12 @@ function v5Arrow(p){
 }
 /* v7: Presentation-only ECharts. Existing records and tables remain authoritative. */
 let v7ChartsPromise=null;
-function v7Chart(title,kind,labels,series,currency=''){
+function v7Chart(title,kind,labels,series,currency='',options={}){
  if(!labels.length||!series.length)return '';
- const payload=JSON.stringify({kind,labels,series,currency});
- return '<div class="v7-chart-panel"><h3>'+h(title)+'</h3><div class="v7-chart" role="img" aria-label="'+h(title)+'" data-chart="'+h(payload)+'"></div><p class="v7-chart-note">Values reflect available records only. Refer to the table for exact figures.</p></div>';
+ const isHorizontal=kind==='horizontal';
+ const payload=JSON.stringify({kind,labels,series,currency,...options});
+ const chartHeight=isHorizontal?' style="height:'+Math.max(265,140+labels.length*56)+'px"':'';
+ return '<div class="v7-chart-panel'+(isHorizontal?' v7-team-chart-panel':'')+'"><h3>'+h(title)+'</h3><div class="v7-chart'+(isHorizontal?' v7-chart-horizontal':'')+'"'+chartHeight+' role="img" aria-label="'+h(title)+'" data-chart="'+h(payload)+'"></div><p class="v7-chart-note">'+(isHorizontal?'Each bar shows directly assigned projects. Counts are not hours or utilization.':'Values reflect available records only. Refer to the table for exact figures.')+'</p></div>';
 }
 function v7LoadCharts(){
  if(window.echarts)return Promise.resolve(window.echarts);
@@ -157,14 +187,42 @@ async function v7RenderCharts(){
   try{
    const data=JSON.parse(el.dataset.chart);
    const chart=echarts.init(el,null,{renderer:'svg'});
+   const horizontal=data.kind==='horizontal';
+   const totalProjects=Math.max(1,Number(data.maxProjects)||0);
+   const colors=['#3A4061','#7B88B6','#B3C0DD'];
    const option={
     animation:false,
-    tooltip:{trigger:'axis',valueFormatter:v=>Number(v).toLocaleString('en-US',{maximumFractionDigits:2})+(data.currency?' '+data.currency:'')},
-    legend:{top:0,type:'scroll'},
-    grid:{left:16,right:22,top:48,bottom:48,containLabel:true},
-    xAxis:{type:'category',data:data.labels,axisLabel:{hideOverlap:true}},
-    yAxis:{type:'value',axisLabel:{formatter:v=>Number(v).toLocaleString('en-US')}},
-    series:data.series.map((x,i)=>({name:x.name,type:data.kind==='line'?'line':'bar',data:x.values,smooth:false,barMaxWidth:36,itemStyle:{color:['#0f766e','#3268b5','#a76e0b','#64748b'][i%4]}}))
+    color:colors,
+    textStyle:{color:'#3A4061'},
+    tooltip:{
+     trigger:'axis',backgroundColor:'#F4F6FB',borderColor:'#B3C0DD',
+     textStyle:{color:'#3A4061'},
+     axisPointer:{lineStyle:{color:'#B3C0DD'},shadowStyle:{color:'#DBE2F2'}},
+     valueFormatter:v=>Number(v).toLocaleString('en-US',{maximumFractionDigits:2})+(data.currency?' '+data.currency:'')
+    },
+    legend:{top:0,type:'scroll',textStyle:{color:'#3A4061'}},
+    grid:horizontal?{left:24,right:32,top:48,bottom:42,containLabel:true}:{left:16,right:22,top:48,bottom:48,containLabel:true},
+    xAxis:horizontal?{
+     type:'value',min:0,max:totalProjects,interval:1,minInterval:1,
+     name:'Projects',nameLocation:'middle',nameGap:28,
+     axisLabel:{color:'#3A4061',formatter:value=>Number.isInteger(value)?String(value):''},
+     splitLine:{lineStyle:{color:'#DBE2F2'}}
+    }:{
+     type:'category',data:data.labels,axisLabel:{hideOverlap:true,color:'#3A4061'},
+     axisLine:{lineStyle:{color:'#B3C0DD'}}
+    },
+    yAxis:horizontal?{
+     type:'category',data:data.labels,inverse:true,
+     axisLabel:{color:'#3A4061',fontSize:12,margin:16},
+     axisTick:{show:false},axisLine:{lineStyle:{color:'#B3C0DD'}}
+    }:{
+     type:'value',axisLabel:{formatter:v=>Number(v).toLocaleString('en-US'),color:'#3A4061'},
+     splitLine:{lineStyle:{color:'#DBE2F2'}}
+    },
+    series:data.series.map((x,i)=>({
+     name:x.name,type:data.kind==='line'?'line':'bar',data:x.values,smooth:false,
+     barMaxWidth:horizontal?32:36,itemStyle:{color:colors[i%colors.length]}
+    }))
    };
    chart.setOption(option);
    if(typeof ResizeObserver==='function'){
@@ -204,10 +262,25 @@ function v5FinancialPanel(p){
 }
 function v5TeamPanel(){
  if(!lead())return '';
- const people=(dashboardV5.people||[]).filter(x=>x.active&&x.role==='team_member');
- const assignments=(dashboardV5.assignments||[]).filter(x=>projects.some(p=>p.id===x.project_code));
- return '<section class="card panel v4-section"><h2 class="paneltitle">Team Workload</h2><p class="v5-context">Assigned projects for active team members within your accessible projects. These are counts, not hours or utilization.</p>'+
- (people.length?v7Chart('Assigned Projects By Team Member','bar',people.map(x=>x.display_name),[{name:'Assigned Projects',values:people.map(u=>new Set(assignments.filter(x=>x.user_id===u.id).map(x=>x.project_code)).size)}])+'<div class="table-wrap"><table class="v6-team-table"><thead><tr><th>Team Member</th><th>Assigned Projects</th><th>Project Codes</th></tr></thead><tbody>'+people.map(u=>{const codes=[...new Set(assignments.filter(x=>x.user_id===u.id).map(x=>x.project_code))];return '<tr><td><strong>'+h(u.display_name)+'</strong></td><td class="v6-count">'+codes.length+'</td><td>'+h(codes.join(', ')||'Unassigned')+'</td></tr>'}).join('')+'</tbody></table></div>':'<p>No active team members are available.</p>')+'</section>';
+ // Only actual active team members appear here; Head of Projects is the manager,
+ // and the full accessible portfolio sets the chart scale, not a manager bar.
+ const people=(dashboardV5.people||[]).filter(u=>u.active&&u.role==='team_member')
+  .sort((a,b)=>String(a.display_name||'').localeCompare(String(b.display_name||'')));
+ const visibleCodes=[...new Set(projects.map(p=>p.id))];
+ const accessible=new Set(visibleCodes);
+ const assignments=(dashboardV5.assignments||[]).filter(a=>accessible.has(a.project_code));
+ const members=people.map(u=>{
+  const codes=[...new Set(assignments.filter(a=>a.user_id===u.id).map(a=>a.project_code))];
+  return {name:u.display_name,codes};
+ });
+ return '<section class="card panel v4-section v8-team-section"><h2 class="paneltitle">Team Workload</h2>'+
+ '<p class="v5-context">Direct project assignments for active team members. The chart scale covers all '+accessible.size+' projects accessible to the Head of Projects; counts are not hours or utilization.</p>'+
+ (members.length?'<div class="v8-team-layout"><div class="v8-team-graph">'+
+ v7Chart('Assigned Projects By Team Member','horizontal',members.map(x=>x.name),
+ [{name:'Assigned Projects',values:members.map(x=>x.codes.length)}],'',{maxProjects:accessible.size})+
+ '</div><div class="v8-team-members"><h3>Team Members</h3><div class="v8-team-roster">'+
+ members.map(u=>'<div class="v8-member-item"><div class="v8-member-top"><strong>'+h(u.name)+'</strong><span class="v8-member-count">'+u.codes.length+' project'+(u.codes.length===1?'':'s')+'</span></div><div class="v8-member-codes"><span>Project codes</span><strong>'+h(u.codes.join(', ')||'None assigned')+'</strong></div></div>').join('')+
+ '</div></div></div>':'<p>No active team members are available.</p>')+'</section>';
 }
 function v5Portfolio(){
  const currencies=[...new Set(active().map(p=>v7BudgetCurrency(p.id)).filter(Boolean))];
@@ -332,7 +405,7 @@ ROOT.addEventListener('click',async event=>{
  if(action==='back'){chosen=null;detailsV4=null;edit=false;page='projects';render();return;}
  if(action==='prompt'){const input=document.querySelector('#ai-v4 input');if(input){input.value=button.dataset.question||'';input.focus();}return;}
  if(action==='clarify'){const input=document.querySelector('#ai-v4 input');if(input){input.value=button.dataset.choice||'';input.focus();}return;}
- if(action==='clear'){chatV4=[];aiClarificationV4=null;render();return;}
+ if(action==='clear'){aiCancelV9();chatV4=[];aiClarificationV4=null;render();return;}
  if(action==='file'||action==='pdf'){
   let tab=action==='pdf'?window.open('about:blank','_blank'):null;
   try{
@@ -406,12 +479,19 @@ ROOT.addEventListener('submit',async event=>{
   const question=String(new FormData(form).get('question')||'').trim();
   if(!question||chatBusyV4)return;
   const history=chatV4.slice(-6);chatV4.push({role:'user',content:question});
-  chatBusyV4=true;render();
-  try{const data=await api('/api/assistant',{method:'POST',body:{question,history,clarification:aiClarificationV4}});
+  chatBusyV4=true;const ticket=aiBeginV9();render();
+  try{
+   const data=await api('/api/assistant',{method:'POST',body:{question,history,clarification:aiClarificationV4}});
+   if(ticket!==aiRequestNonceV9)return;
+   if(typeof data?.answer!=='string'||!data.answer.trim())throw new Error('Empty assistant response');
    aiClarificationV4=data.clarification||null;
-   chatV4.push({role:'assistant',content:data.answer});}
-  catch(err){chatV4.push({role:'assistant',content:err?.status===401?'Your session has expired. Please sign in again.':'Project information is temporarily unavailable. Please try again.'});}
-  finally{chatBusyV4=false;render();}
+   chatV4.push({role:'assistant',content:data.answer});
+  }catch(err){
+   if(ticket!==aiRequestNonceV9)return;
+   chatV4.push({role:'assistant',content:err?.status===401?'Your session has expired. Please sign in again.':'Project information is temporarily unavailable. Please try again.'});
+  }finally{
+   if(ticket===aiRequestNonceV9){chatBusyV4=false;render();}
+  }
   return;
  }
  if(id==='create-v4'){
