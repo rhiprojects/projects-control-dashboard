@@ -424,8 +424,12 @@ function v5FinancialPanel(p){
  const activeMonths=months.filter(x=>!endMonth||String(x.period_start).slice(0,7)<=endMonth);
  const postEndMonths=months.filter(x=>endMonth&&String(x.period_start).slice(0,7)>endMonth);
  const outsideManpower=v5Rows(p.id).filter(x=>endMonth&&String(x.period_start).slice(0,7)>endMonth&&/manpower/i.test(String(x.category))&&Number(x.baseline_amount)>0);
+ const postEndFunded=postEndMonths.filter(x=>Number(x.baseline_amount)>0||Number(x.current_amount)>0);
+ const manpowerLines=v5Rows(p.id).filter(x=>/^manpower$/i.test(String(x.category)));
+ const personnelInCogs=v5Rows(p.id).some(x=>/cogs.*personnel/i.test(String(x.category))&&Number(x.baseline_amount)>0);
+ const confirmedZeroManpower=p.id==='818.01'&&personnelInCogs&&manpowerLines.length>0&&manpowerLines.every(x=>v5Number(x.baseline_amount)===0);
  const approved=v7Total(months,'baseline_amount'),working=v7Total(months,'current_amount');
- const included=new Set(months.filter(x=>v5Number(x.baseline_amount)!==null&&Number(x.baseline_amount)!==0).map(x=>String(x.period_start).slice(0,7)));
+ const included=new Set(activeMonths.filter(x=>v5Number(x.baseline_amount)!==null&&Number(x.baseline_amount)!==0).map(x=>String(x.period_start).slice(0,7)));
  const lines=v5Rows(p.id).filter(x=>x.currency===currency&&included.has(String(x.period_start).slice(0,7)));
  const valid=lines.filter(x=>v5Number(x.baseline_amount)!==null);
  const categories=[...new Set(valid.map(x=>x.category))];
@@ -441,8 +445,9 @@ function v5FinancialPanel(p){
  return '<section class="card panel v4-section v5-financial" aria-label="Financial analysis"><h2 class="paneltitle">Project Financial Analysis</h2><p class="v5-context">Original Contract Value is contractual and has no annual reporting period here. Approved and Working Project Budgets cover the available 2027 monthly records and include manpower and other costs. These measures retain their own currencies and do not establish actual revenue, incurred expenditure, or profit.</p>'+
  '<p class="v5-context">Current project and budget end: '+h(projectEndLabel(p))+'. An extension does not automatically add budget amounts.</p>'+
  (postEndMonths.length?'<p class="v5-context">'+postEndMonths.length+' post-end monthly rows are retained in the budget register for audit but omitted from the active-period chart and table.</p>':'')+
+ (postEndFunded.length?'<p class="v5-context" role="status">Financial reconciliation required: '+postEndFunded.length+' funded monthly record(s) fall after the revised project end. Recorded annual budget totals remain unchanged pending review.</p>':'')+
  (outsideManpower.length?'<p class="v5-context" role="status">Review required: '+outsideManpower.map(x=>String(x.period_start).slice(0,7)+' Manpower reference '+v5Money(v5Number(x.baseline_amount),x.currency)).join('; ')+' falls after the project end. This entry has not been removed or reassigned.</p>':'')+
- (p.id==='818.01'?'<p class="v5-context">Project 818.01: separate Manpower is correctly zero because personnel costs are included under COGS – Personnel Costs. Do not double-count personnel.</p>':'')+
+ (confirmedZeroManpower?'<p class="v5-context">Project 818.01: separate Manpower is correctly zero because personnel costs are included under COGS - Personnel Costs. Do not double-count personnel.</p>':'')+
  '<div class="v5-metrics"><div><small>'+moneyHeading('Original Contract Value',contractCurrency)+'</small><strong>'+v5Money(p.contractValue,contractCurrency)+'</strong><p class="financial-note">Contractual amount</p></div><div><small>'+moneyHeading('2027 Approved Project Budget',currency)+'</small><strong>'+v5Money(approved,currency)+'</strong><p class="financial-note">Approved forecast · 2027</p></div><div><small>'+moneyHeading('2027 Working Project Budget',currency)+'</small><strong>'+v5Money(working,currency)+'</strong><p class="financial-note">Working forecast · 2027</p></div><div><small>'+moneyHeading('Recorded P&L Margin',contractCurrency)+'</small><strong>'+v5Money(health?.margin??null,contractCurrency)+'</strong><p class="financial-note">Available recorded periods</p></div></div><p class="financial-note">'+h(marginContext(p))+'</p>'+
  v7Chart('2027 Monthly Project Budget — Approved vs Working'+(currency?' · '+currency:''),'bar',activeMonths.map(x=>String(x.period_start).slice(0,7)),[{name:'Approved Budget',values:activeMonths.map(x=>v5Number(x.baseline_amount))},{name:'Working Budget',values:activeMonths.map(x=>v5Number(x.current_amount))}],currency,{financial:true})+
  (categoriesAvailable?v7Chart('2027 Scheduled Costs By Category'+(currency?' · '+currency:''),'bar',totals.map(x=>x.category),[{name:'Scheduled Costs',values:totals.map(x=>x.amount)}],currency,{financial:true}):'')+
