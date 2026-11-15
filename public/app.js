@@ -36,7 +36,7 @@ async function init(){
  render();
 }
 const saveAuth=()=>{if(auth)sessionStorage.setItem('projectsControlSession',JSON.stringify(auth));else sessionStorage.removeItem('projectsControlSession')};
-function logout(refresh=true){auth=null;me=null;projects=[];dashboardV5={budgetLines:[],monthlyBudgets:[],actuals:[],assignments:[],people:[]};adminData={users:[],assignments:[]};page='overview';chosen=null;edit=false;chatV4=[];aiClarificationV4=null;detailsV4=null;creatingV4=false;pendingV4=null;suggestionsV4={};saveAuth();if(refresh)render()}
+function logout(refresh=true){aiCancelV9();auth=null;me=null;projects=[];dashboardV5={budgetLines:[],monthlyBudgets:[],actuals:[],assignments:[],people:[]};adminData={users:[],assignments:[]};page='overview';chosen=null;edit=false;chatV4=[];aiClarificationV4=null;detailsV4=null;creatingV4=false;pendingV4=null;suggestionsV4={};saveAuth();if(refresh)render()}
 async function refreshToken(){if(!auth?.refresh_token)return false;
  const r=await fetch(cfg.supabaseUrl+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:cfg.publishableKey,'content-type':'application/json'},body:JSON.stringify({refresh_token:auth.refresh_token})});
  if(!r.ok){logout(false);return false}auth=await r.json();saveAuth();return true;
@@ -53,7 +53,7 @@ async function login(email,password){
  const r=await fetch(cfg.supabaseUrl+'/auth/v1/token?grant_type=password',{method:'POST',headers:{apikey:cfg.publishableKey,'content-type':'application/json'},body:JSON.stringify({email,password})});
  let v={};try{v=await r.json()}catch{}
  if(!r.ok||!v.access_token)throw Error('Sign-in failed. Check your email, password and account activation.');
- chatV4=[];aiClarificationV4=null;detailsV4=null;pendingV4=null;auth=v;saveAuth();try{await ready()}catch(e){logout(false);throw e}
+ aiCancelV9();chatV4=[];aiClarificationV4=null;detailsV4=null;pendingV4=null;auth=v;saveAuth();try{await ready()}catch(e){logout(false);throw e}
 }
 async function ready(){const s=await api('/api/session');me=s;const r=await api('/api/projects');projects=r.projects||[];await loadDashboardV5();if(admin())await loadAdmin();}
 async function loadDashboardV5(){try{dashboardV5=await api('/api/dashboard')}catch{dashboardV5={budgetLines:[],monthlyBudgets:[],actuals:[],assignments:[],people:[]}}}
@@ -104,9 +104,73 @@ ROOT.addEventListener('submit',async e=>{
  }
 });
 let creatingV4=false, detailsV4=null, chatV4=[],chatBusyV4=false,aiClarificationV4=null,pendingV4=null,suggestionsV4={};
+const aiOrbLabelsV9={start:'Assistant ready',thinking:'Assistant thinking',working:'Retrieving project information',success:'Assistant response ready'};
+let aiVisualStateV9='start',aiRequestNonceV9=0,aiWorkTimerV9=null,aiSuccessTimerV9=null;
+function aiDotMatrixMarkupV9(){
+ const dots=[],rings=[],count=96,size=28,rad=38,golden=Math.PI*(3-Math.sqrt(5));
+ for(let i=0;i<count;i++){
+  const face=Math.floor(i/16),local=i%16,row=Math.floor(local/4),col=local%4;
+  const a=(col-1.5)*size*2/3,b=(row-1.5)*size*2/3;
+  const cube=face===0?[size,a,b]:face===1?[-size,a,b]:face===2?[a,size,b]:face===3?[a,-size,b]:face===4?[a,b,size]:[a,b,-size];
+  const z=1-2*(i+.5)/count,polar=Math.sqrt(1-z*z),az=i*golden;
+  const sphere=[Math.cos(az)*polar*rad,Math.sin(az)*polar*rad,z*rad];
+  const bulge=1.07+0.16*((i*17)%13)/12;
+  const fixed=n=>n.toFixed(1)+'px';
+  const vars=['--cx:'+fixed(cube[0]),'--cy:'+fixed(cube[1]),'--cz:'+fixed(cube[2]),'--sx:'+fixed(sphere[0]),'--sy:'+fixed(sphere[1]),'--sz:'+fixed(sphere[2]),'--bx:'+fixed(sphere[0]*bulge),'--by:'+fixed(sphere[1]*bulge),'--bz:'+fixed(sphere[2]*bulge),'--phase:'+((i*7)%37/37*1.6).toFixed(2)+'s','--op:'+(0.58+(z+1)*.19).toFixed(2)];
+  dots.push('<i class="ai-matrix-dot-v9" style="'+vars.join(';')+'"></i>');
+ }
+ for(let plane=0;plane<3;plane++){
+  const ring=[];
+  for(let i=0;i<28;i++){
+   const a=2*Math.PI*i/28;
+   ring.push('<i class="ai-matrix-ring-dot-v9" style="--rx:'+(Math.cos(a)*44).toFixed(1)+'px;--ry:'+(Math.sin(a)*44).toFixed(1)+'px"></i>');
+  }
+  rings.push('<div class="ai-matrix-ring-v9 ai-matrix-ring-'+plane+'">'+ring.join('')+'</div>');
+ }
+ return '<div class="ai-matrix-v9" data-state="'+aiVisualStateV9+'" aria-hidden="true"><div class="ai-matrix-glow-v9"></div><div class="ai-matrix-scene-v9"><div class="ai-matrix-core-v9">'+dots.join('')+'</div>'+rings.join('')+'</div></div><span class="ai-matrix-sr-v9" role="status" aria-live="polite">'+aiOrbLabelsV9[aiVisualStateV9]+'</span>';
+}
+function aiVisualSetV9(state){
+ if(!Object.hasOwn(aiOrbLabelsV9,state))return;
+ aiVisualStateV9=state;
+ const scene=ROOT.querySelector('.ai-matrix-v9');
+ if(scene)scene.dataset.state=state;
+ const label=ROOT.querySelector('.ai-matrix-sr-v9');
+ if(label)label.textContent=aiOrbLabelsV9[state];
+}
+function aiCancelTimersV9(){
+ if(aiWorkTimerV9!==null){clearTimeout(aiWorkTimerV9);aiWorkTimerV9=null}
+ if(aiSuccessTimerV9!==null){clearTimeout(aiSuccessTimerV9);aiSuccessTimerV9=null}
+}
+function aiCancelV9(){
+ ++aiRequestNonceV9;
+ aiCancelTimersV9();
+ chatBusyV4=false;
+ aiVisualSetV9('start');
+}
+function aiBeginV9(){
+ aiCancelTimersV9();
+ const ticket=++aiRequestNonceV9;
+ aiVisualSetV9('thinking');
+ aiWorkTimerV9=setTimeout(()=>{
+  aiWorkTimerV9=null;
+  if(ticket===aiRequestNonceV9&&chatBusyV4)aiVisualSetV9('working');
+ },500);
+ return ticket;
+}
+function aiEndV9(ticket,succeeded){
+ if(ticket!==aiRequestNonceV9)return;
+ if(aiWorkTimerV9!==null){clearTimeout(aiWorkTimerV9);aiWorkTimerV9=null}
+ if(!succeeded){aiVisualSetV9('start');return}
+ aiVisualSetV9('success');
+ aiSuccessTimerV9=setTimeout(()=>{
+  aiSuccessTimerV9=null;
+  if(ticket===aiRequestNonceV9)aiVisualSetV9('start');
+ },2200);
+}
+
 function aiPanelV4(){
  const topics=[["Projects","How many projects can I access?"],["Financials","What are my projects' 2027 budgets?"],["Progress","What is the latest physical progress of my projects?"],["Contracts","What contract details are available?"],["Dates","When are my projects scheduled to finish?"],["Owners","Who is responsible for my projects?"]];
- return `<section class="card ai-card-v4"><div class="ai-top-v4"><h2>AI Assistant</h2><button type="button" title="Clear Chat" aria-label="Clear Chat" class="ai-menu-v4" data-v4="clear">⋮</button></div><div class="ai-orb-v4" aria-hidden="true">${ico("assistant")}</div><h3 class="ai-heading-v4">What Can I Help With?</h3><div class="ai-topics-v4">${topics.map(([label,question])=>`<button type="button" data-v4="prompt" data-question="${h(question)}">${label}</button>`).join("")}</div>${chatV4.length?`<div class="ai-chat-v4">${chatV4.map(x=>`<p class="${x.role==='user'?'my-question':''}">${h(x.content)}</p>`).join('')}</div>`:''}${aiClarificationV4?.kind==='loss_basis'?`<div class="ai-topics-v4" aria-label="Choose how to define loss"><button type="button" data-v4="clarify" data-choice="Gross loss">Gross loss</button><button type="button" data-v4="clarify" data-choice="Net loss">Net loss</button><button type="button" data-v4="clarify" data-choice="Both">Both</button></div>`:''}<form id="ai-v4" class="ai-input-v4"><span aria-hidden="true">✣</span><input aria-label="Ask the AI Assistant" name="question" placeholder="Ask anything about your projects..." maxlength="1600" required><button ${chatBusyV4?'disabled':''}>↑ Send</button></form></section>`;
+ return `<section class="card ai-card-v4"><div class="ai-top-v4"><h2>AI Assistant</h2><button type="button" title="Clear Chat" aria-label="Clear Chat" class="ai-menu-v4" data-v4="clear">⋮</button></div>${aiDotMatrixMarkupV9()}<h3 class="ai-heading-v4">What Can I Help With?</h3><div class="ai-topics-v4">${topics.map(([label,question])=>`<button type="button" data-v4="prompt" data-question="${h(question)}">${label}</button>`).join("")}</div>${chatV4.length?`<div class="ai-chat-v4">${chatV4.map(x=>`<p class="${x.role==='user'?'my-question':''}">${h(x.content)}</p>`).join('')}</div>`:''}${aiClarificationV4?.kind==='loss_basis'?`<div class="ai-topics-v4" aria-label="Choose how to define loss"><button type="button" data-v4="clarify" data-choice="Gross loss">Gross loss</button><button type="button" data-v4="clarify" data-choice="Net loss">Net loss</button><button type="button" data-v4="clarify" data-choice="Both">Both</button></div>`:''}<form id="ai-v4" class="ai-input-v4"><span aria-hidden="true">✣</span><input aria-label="Ask the AI Assistant" name="question" placeholder="Ask anything about your projects..." maxlength="1600" required><button ${chatBusyV4?'disabled':''}>↑ Send</button></form></section>`;
 }
 
 
@@ -377,7 +441,7 @@ ROOT.addEventListener('click',async event=>{
  if(action==='back'){chosen=null;detailsV4=null;edit=false;page='projects';render();return;}
  if(action==='prompt'){const input=document.querySelector('#ai-v4 input');if(input){input.value=button.dataset.question||'';input.focus();}return;}
  if(action==='clarify'){const input=document.querySelector('#ai-v4 input');if(input){input.value=button.dataset.choice||'';input.focus();}return;}
- if(action==='clear'){chatV4=[];aiClarificationV4=null;render();return;}
+ if(action==='clear'){aiCancelV9();chatV4=[];aiClarificationV4=null;render();return;}
  if(action==='file'||action==='pdf'){
   let tab=action==='pdf'?window.open('about:blank','_blank'):null;
   try{
@@ -451,12 +515,21 @@ ROOT.addEventListener('submit',async event=>{
   const question=String(new FormData(form).get('question')||'').trim();
   if(!question||chatBusyV4)return;
   const history=chatV4.slice(-6);chatV4.push({role:'user',content:question});
-  chatBusyV4=true;render();
-  try{const data=await api('/api/assistant',{method:'POST',body:{question,history,clarification:aiClarificationV4}});
+  chatBusyV4=true;const ticket=aiBeginV9();render();
+  try{
+   const data=await api('/api/assistant',{method:'POST',body:{question,history,clarification:aiClarificationV4}});
+   if(ticket!==aiRequestNonceV9)return;
+   if(typeof data?.answer!=='string'||!data.answer.trim())throw new Error('Empty assistant response');
    aiClarificationV4=data.clarification||null;
-   chatV4.push({role:'assistant',content:data.answer});}
-  catch(err){chatV4.push({role:'assistant',content:err?.status===401?'Your session has expired. Please sign in again.':'Project information is temporarily unavailable. Please try again.'});}
-  finally{chatBusyV4=false;render();}
+   chatV4.push({role:'assistant',content:data.answer});
+   aiEndV9(ticket,true);
+  }catch(err){
+   if(ticket!==aiRequestNonceV9)return;
+   chatV4.push({role:'assistant',content:err?.status===401?'Your session has expired. Please sign in again.':'Project information is temporarily unavailable. Please try again.'});
+   aiEndV9(ticket,false);
+  }finally{
+   if(ticket===aiRequestNonceV9){chatBusyV4=false;render();}
+  }
   return;
  }
  if(id==='create-v4'){
