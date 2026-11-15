@@ -117,13 +117,13 @@ function aiDotMatrixMarkupV9(){
   const bulge=1.07+0.16*((i*17)%13)/12;
   const fixed=n=>n.toFixed(1)+'px';
   const vars=['--cx:'+fixed(cube[0]),'--cy:'+fixed(cube[1]),'--cz:'+fixed(cube[2]),'--sx:'+fixed(sphere[0]),'--sy:'+fixed(sphere[1]),'--sz:'+fixed(sphere[2]),'--bx:'+fixed(sphere[0]*bulge),'--by:'+fixed(sphere[1]*bulge),'--bz:'+fixed(sphere[2]*bulge),'--phase:'+((i*7)%37/37*1.6).toFixed(2)+'s','--op:'+(0.58+(z+1)*.19).toFixed(2)];
-  dots.push('<i class="ai-matrix-dot-v9" style="'+vars.join(';')+'"></i>');
+  dots.push('<i class="ai-matrix-dot-v9" style="left:'+fixed(cube[0])+';top:'+fixed(cube[1])+';'+vars.join(';')+'"></i>');
  }
  for(let plane=0;plane<3;plane++){
   const ring=[];
   for(let i=0;i<28;i++){
    const a=2*Math.PI*i/28;
-   ring.push('<i class="ai-matrix-ring-dot-v9" style="--rx:'+(Math.cos(a)*44).toFixed(1)+'px;--ry:'+(Math.sin(a)*44).toFixed(1)+'px"></i>');
+   ring.push('<i class="ai-matrix-ring-dot-v9" style="left:'+(Math.cos(a)*44).toFixed(1)+'px;top:'+(Math.sin(a)*44).toFixed(1)+'px"></i>');
   }
   rings.push('<div class="ai-matrix-ring-v9 ai-matrix-ring-'+plane+'">'+ring.join('')+'</div>');
  }
