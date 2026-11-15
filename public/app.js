@@ -24,6 +24,7 @@ const roleName={super_admin:'Super Admin',head_of_projects:'Head of Projects',te
 const iconPaths={"grid":"<rect x=\"3\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"3\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/>","projects":"<rect x=\"3\" y=\"5\" width=\"18\" height=\"15\" rx=\"2\"/><path d=\"M3 9h18M7 3v4\"/>","chart":"<path d=\"M4 20V11m6 9V4m6 16v-8m5 8H2\"/>","calendar":"<rect x=\"3\" y=\"5\" width=\"18\" height=\"16\" rx=\"2\"/><path d=\"M7 3v4m10-4v4M3 10h18\"/>","reports":"<path d=\"M6 3h10l4 4v14H6zM16 3v5h4M9 12h8M9 16h8\"/>","admin":"<circle cx=\"12\" cy=\"12\" r=\"4\"/><path d=\"M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2m0-14-2 2M7 17l-2 2\"/>","assistant":"<path d=\"M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z\"/>","contract":"<path d=\"M6 3h10l4 4v14H6zM16 3v5h4M9 12h8M9 16h6\"/>","money":"<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M15 8c-1-2-6-2-6 1 0 3 6 1 6 5 0 3-5 4-7 1M12 5v14\"/>","progress":"<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v6m0 4h.01\"/>"};
 iconPaths.network='<path d="M12 3l9 5v8l-9 5-9-5V8l9-5Z M3 8l9 5 9-5 M12 13v8"/><circle cx="12" cy="3" r="1.8" fill="currentColor" stroke="none"/><circle cx="3" cy="8" r="1.8" fill="currentColor" stroke="none"/><circle cx="21" cy="8" r="1.8" fill="currentColor" stroke="none"/><circle cx="12" cy="21" r="1.8" fill="currentColor" stroke="none"/>';
 iconPaths.team='<circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2H3zM17 5a3 3 0 0 1 0 6M18 14a5 5 0 0 1 4 5v1h-4"/>';
+iconPaths.send='<path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/>';
 const ico=name=>'<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+(iconPaths[name]||iconPaths.grid)+'</svg>';
 let dashboardV5=null,dashboardError=false,dashboardRequest=0;
 let detailsError=false,detailsRequest=0,mobileNavOpen=false,creatingRequest=false;
@@ -115,7 +116,7 @@ function layout(content){
  <nav class="nav" aria-label="Workspace">${navigationMarkup()}</nav>
  <div class="sidebar-photo" aria-hidden="true"></div>
  <div class="sidebottom"><span class="online"></span><strong>Secure session</strong><small>${h(me.displayName)}<br>${h(roleName[me.role])}</small><button class="signout" data-action="logout">Sign out</button></div>
- </aside><main class="main"><header class="topbar"><div class="breadcrumbs"><button class="btn mobile-menu" type="button" data-action="open-menu" aria-controls="workspace-sidebar" aria-expanded="false">Menu</button><span>Projects Control</span><span>›</span><strong>${h(nav.find(n=>n[0]===page)?.[2]||'Projects')}</strong></div></header>
+ </aside><main class="main"><header class="topbar"><div class="breadcrumbs"><button class="btn mobile-menu" type="button" data-action="open-menu" aria-controls="workspace-sidebar" aria-expanded="false">Menu</button><span>Projects Control</span><span>›</span><strong>${h(nav.find(n=>n[0]===page)?.[2]||'Projects')}</strong></div><form class="topbar-ai" id="ai-header" aria-label="Ask your AI assistant"><input type="text" name="question" aria-label="Ask Your AI Assistant" placeholder="Ask Your AI Assistant" maxlength="1600" required autocomplete="off"><button type="submit" aria-label="Send question to AI Assistant" title="Ask AI Assistant" ${chatBusyV4?'disabled':''}>${ico("send")}</button></form></header>
  <div class="content">${error?`<div class="error-box" role="alert">${h(error)}</div>`:''}${notice?`<div class="okay-box" role="status">${h(notice)}</div>`:''}${content}</div></main></div>`;
 }
 function focusFinancialSection(){
@@ -179,7 +180,7 @@ function render(){
  if(window.echarts){
   ROOT.querySelectorAll('.v7-chart').forEach(el=>window.echarts.getInstanceByDom(el)?.dispose());
  }
- ROOT.innerHTML=!me?loginView():layout(creatingV4?createV4():chosen?(edit?editProjectV4():projectViewV4()):page==='overview'?overviewV4():page==='projects'?projectListV4():page==='financials'?financePageV4():page==='team'&&lead()?teamPageV12():page==='milestones'?milestonesPageV4():page==='reports'?reportPageV4():page==='admin'?adminPageV4():overviewV4());
+ ROOT.innerHTML=!me?loginView():layout(creatingV4?createV4():chosen?(edit?editProjectV4():projectViewV4()):page==='overview'?overviewV4():page==='projects'?projectListV4():page==='financials'?financePageV4():page==='assistant'?assistantPageV4():page==='team'&&lead()?teamPageV12():page==='milestones'?milestonesPageV4():page==='reports'?reportPageV4():page==='admin'?adminPageV4():overviewV4());
  const replacement=draft&&document.getElementById(draft.id);
  if(replacement){
   replacement.replaceWith(draft);
@@ -326,6 +327,7 @@ let creatingV4=false, detailsV4=null, chatV4=[],chatBusyV4=false,aiClarification
 let aiRequestNonceV9=0;
 function aiCancelV9(){++aiRequestNonceV9;chatBusyV4=false;}
 function aiBeginV9(){return ++aiRequestNonceV9;}
+function assistantPageV4(){return '<div class="assistant-workspace"><h1 class="assistant-page-heading">Projects AI Assistant</h1>'+aiPanelV4()+'</div>';}
 function aiPanelV4(){
  const topics=[["Projects","How many projects can I access?"],["Financials","What are my projects' 2027 budgets?"],["Progress","What is the latest physical progress of my projects?"],["Contracts","What contract details are available?"],["Dates","When are my projects scheduled to finish?"],["Owners","Who is responsible for my projects?"]];
  return `<section class="card ai-card-v4" aria-label="Projects AI Assistant"><div class="ai-top-v4"><div class="ai-identity-v4"><span class="ai-mark-v4" aria-hidden="true">${ico("network")}</span><div><h2>Projects AI Assistant</h2><p class="ai-description-v4">Ask about projects, financials, contracts, progress, schedules, and owners.</p></div></div><button type="button" title="Clear chat history" aria-label="Clear chat history" class="ai-menu-v4" data-v4="clear">Clear chat</button></div><h3 class="ai-heading-v4">Quick questions</h3><div class="ai-topics-v4">${topics.map(([label,question])=>`<button type="button" data-v4="prompt" data-question="${h(question)}">${ico(({Projects:"projects",Financials:"chart",Progress:"progress",Contracts:"contract",Dates:"calendar",Owners:"admin"})[label]||"grid")}<span>${label}</span></button>`).join("")}</div>${chatV4.length?`<div class="ai-chat-v4" role="log" aria-label="Assistant conversation" aria-live="polite" tabindex="0">${chatV4.map(x=>`<div class="ai-message ${x.role==='user'?'my-question':''}"><span class="ai-message-author">${x.role==='user'?'You':'Projects AI'}</span><p>${h(x.content)}</p></div>`).join('')}</div>`:''}${aiClarificationV4?.kind==='loss_basis'?`<div class="ai-topics-v4" aria-label="Choose how to define loss"><button type="button" data-v4="clarify" data-choice="Gross loss">Gross loss</button><button type="button" data-v4="clarify" data-choice="Net loss">Net loss</button><button type="button" data-v4="clarify" data-choice="Both">Both</button></div>`:''}<p class="ai-response-status" role="status">${chatBusyV4?'Retrieving project information…':''}</p><form id="ai-v4" class="ai-input-v4"><input aria-label="Ask the AI Assistant" name="question" placeholder="Ask anything about your projects…" maxlength="1600" required><button type="submit" ${chatBusyV4?'disabled':''}>Send ${ico("assistant")}</button></form></section>`;
@@ -583,9 +585,9 @@ function v5Portfolio(){
    return [p.id+' · '+(p.displayName||p.client),moneyLabel(v7Total(months,'baseline_amount'),currency),
     moneyLabel(v7Total(months,'current_amount'),currency),moneyLabel(p.contractValue,p.contractCurrency),portalProjectEndText(p)];
   });
-  return v7Chart('2027 Approved Project Budget by Project · '+currency,'bar',labels,[{name:'Approved Project Budget',values}],currency,
-   {financial:true,table:financialTable('2027 project budgets · '+currency+'; original contract values in their own currencies',
-    ['Project','Approved Project Budget','Working Project Budget','Original Contract Value','Project end'],exactRows)});
+  return '<section class="card panel v4-section financial-exact-summary">'+financialTable(
+   '2027 project budgets · '+currency+'; original contract values in their own currencies',
+   ['Project','Approved Project Budget','Working Project Budget','Original Contract Value','Project end'],exactRows)+'</section>';
  }).join('');
  return charts+'<section class="card panel v4-section"><div class="panelhead"><h2 class="paneltitle">Project Financial Overview</h2></div><p class="v5-context">2027 project budgets are forecasts grouped by budget currency. Original contract values retain their contractual currencies. Margin arrows indicate the sign of recorded Revenue minus COGS in the contract currency; they do not show a trend. Unavailable actuals remain neutral.</p><div class="v5-portfolio-grid">'+active().map(p=>{
   const currency=v7BudgetCurrency(p.id);
@@ -660,7 +662,7 @@ function teamPageV12(){
 
 function overviewV4(){
  return `<div class="pageheader overview-header"><h1 class="pagetitle">${h(cairoGreeting(me.displayName))}</h1><button class="btn" data-action="reload">↻ Refresh</button></div>`+
- `<div class="cards">${kpi('Active Projects',String(active().length),'Active Projects','','projects')}${kpi('Original Contract Value · EGP',contractTotalLabel('EGP'),'Active projects · contractual amounts','blue','contract')}${kpi('Original Contract Value · USD',contractTotalLabel('USD'),'Active projects · contractual amounts','','money')}${kpi('Progress Not Recorded',String(missing('progress')),'Active Projects','amber','progress')}</div>${dashboardV5?dashboardFinancialV12():dataStatus("Dashboard data",dashboardError,"retry-dashboard")}<div class="grid-two v4-grid"><section class="card panel"><div class="panelhead"><h2 class="paneltitle">Your Active Projects</h2><button class="btn small" data-page="projects">View all</button></div><ul class="list-naked">${active().map(p=>`<li><div><button class="plink" data-project="${h(p.id)}">${h(p.id)} · ${h(p.displayName||p.client)}</button><span class="subline">${h(p.status)} · ${h(p.contractCurrency)} · Project end: ${h(portalProjectEndText(p))}</span></div>${dashboardV5?v5Arrow(p):''}</li>`).join('')}</ul></section>${aiPanelV4()}</div>`;
+ `<div class="cards">${kpi('Active Projects',String(active().length),'Active Projects','','projects')}${kpi('Original Contract Value · EGP',contractTotalLabel('EGP'),'Active projects · contractual amounts','blue','contract')}${kpi('Original Contract Value · USD',contractTotalLabel('USD'),'Active projects · contractual amounts','','money')}${kpi('Progress Not Recorded',String(missing('progress')),'Active Projects','amber','progress')}</div>${dashboardV5?dashboardFinancialV12():dataStatus("Dashboard data",dashboardError,"retry-dashboard")}<div class="overview-projects-section"><section class="card panel"><div class="panelhead"><h2 class="paneltitle">Your Active Projects</h2><button class="btn small" data-page="projects">View all</button></div><ul class="list-naked">${active().map(p=>`<li><div><button class="plink" data-project="${h(p.id)}">${h(p.id)} · ${h(p.displayName||p.client)}</button><span class="subline">${h(p.status)} · ${h(p.contractCurrency)} · Project end: ${h(portalProjectEndText(p))}</span></div>${dashboardV5?v5Arrow(p):''}</li>`).join('')}</ul></section></div>`;
 }
 
 const formFeedback=()=>'<p class="portal-form-error" data-form-error role="alert" tabindex="-1" hidden></p><p class="portal-form-status" data-form-status role="status"></p>';
@@ -1009,11 +1011,16 @@ ROOT.addEventListener('change',async event=>{
 });
 ROOT.addEventListener('submit',async event=>{
  const form=event.target,id=form.id;
- if(!['ai-v4','create-v4','edit-v4','add-period-v4','contract-v4','numbers-v4','assign-v4'].includes(id))return;
+ if(!['ai-v4','ai-header','create-v4','edit-v4','add-period-v4','contract-v4','numbers-v4','assign-v4'].includes(id))return;
  event.preventDefault();
- if(id==='ai-v4'){
+ if(id==='ai-v4'||id==='ai-header'){
   const question=String(new FormData(form).get('question')||'').trim();
   if(!question||chatBusyV4)return;
+  if(id==='ai-header'){
+   if(!await canLeaveCreate())return;
+   creatingV4=false;chosen=null;clearProjectDetails();edit=false;
+   page='assistant';financialDestination='';filter='';projectStatus='';clearToast();mobileNavOpen=false;
+  }
   const history=chatV4.slice(-6);chatV4.push({role:'user',content:question});
   chatBusyV4=true;const ticket=aiBeginV9();render();
   try{
