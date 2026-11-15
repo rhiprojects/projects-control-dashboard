@@ -474,3 +474,7 @@ svg.v5-track{display:block;width:100%}
 .edit-save-feedback .edit-save-error{color:#a61b1b;background:#fff3f3;border:1px solid #e9a1a1;border-left:4px solid #bd2222;font-weight:600;margin:0;padding:8px 12px}
 .edit-save-feedback .portal-form-status{margin:0}
 @media(max-width:560px){.edit-save-feedback{width:100%;flex:1 1 auto}}
+
+/* Financial updates: keep the failure beside its own Save control. */
+.budget-save-feedback{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:120px}
+.budget-save-error:not([hidden]){display:inline-block;color:#a61b1b;background:#fff3f3;border:1px solid #e9a1a1;border-left:3px solid #bd2222;border-radius:6px;padding:7px 9px;font-size:12px;font-weight:600;line-height:1.4;max-width:280px}
