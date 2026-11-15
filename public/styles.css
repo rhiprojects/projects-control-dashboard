@@ -206,6 +206,10 @@ table tbody tr:hover{background:var(--portal-canvas)}
 .info-item label,.v5-portfolio-item small,.v5-team-row small,.progress+.progrow small{
  color:var(--portal-ink)
 }
+.login-desc,.login-field label,.login-logo .brandname small,
+.chatintro p,.chatbubble,.empty-state,.empty,.footnote,.note,.report-preview,
+.activity,.activity time,.admin-owner-row small,.user-list-row span:not(.pill),
+.v4-file,.v4-suggest-grid strong,.v7-chart-panel h3{color:var(--portal-ink)}
 .v7-chart-horizontal{min-height:265px}
 .v8-team-scope{display:block;color:var(--portal-ink);font-size:12px;font-weight:400;margin-top:4px}
 @media(max-width:720px){.v7-chart-horizontal{min-height:285px}}
