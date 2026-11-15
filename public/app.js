@@ -537,29 +537,51 @@ function projectViewV4(){
  const p=fromProject(chosen);if(!p)return projectListV4();const d=detailsV4;
  const line=(label,value)=>`<div class="v4-fact"><span>${label}</span><strong>${h(String(value??'Not recorded'))}</strong></div>`;
  return heading('Projects',`${h(p.id)} · ${h(p.displayName||p.client)}`,h(p.scope||''),`<button class="btn" data-v4="back">Back</button><button class="btn primary" data-v4="edit"${!d?' disabled':''}>Edit Project</button>`)+
- `<section class="card panel v4-section v4-project-info"><h2 class="paneltitle">Project Information</h2><div class="v4-facts">${line('Project end',portalProjectEndText(p))}${line('Client / contracting organization',p.client)}${line('Contract value',moneyLabel(p.contractValue,p.contractCurrency))}${line('Physical progress',p.progress===null?'Not recorded':p.progress+'%')}${line('Location',p.location)}${line('Start date',p.startDate)}${line('2027 budgeted months',portalBudgetCoverage(p)?.months??null)}${line('Revised finish (exact date)',p.forecastFinish)}${line('Recorded duration (months)',p.durationMonths)}${line('Financial progress (source amount)',p.sourceTotalProgress===null?null:moneyLabel(p.sourceTotalProgress,p.contractCurrency))}${line('Remaining contract (source amount)',p.sourceRemaining===null?null:moneyLabel(p.sourceRemaining,p.contractCurrency))}${line('Project status',p.status)}</div></section>
- ${d?projectTeamV4(d):dataStatus('Project details',detailsError,'retry-details')}
+ `<div class="v4-project-top"><section class="card panel v4-section v4-project-info"><h2 class="paneltitle">Project Information</h2><div class="v4-facts">${line('Project end',portalProjectEndText(p))}${line('Client / contracting organization',p.client)}${line('Contract value',moneyLabel(p.contractValue,p.contractCurrency))}${line('Physical progress',p.progress===null?'Not recorded':p.progress+'%')}${line('Location',p.location)}${line('Start date',p.startDate)}${line('2027 budgeted months',portalBudgetCoverage(p)?.months??null)}${line('Revised finish (exact date)',p.forecastFinish)}${line('Recorded duration (months)',p.durationMonths)}${line('Financial progress (source amount)',p.sourceTotalProgress===null?null:moneyLabel(p.sourceTotalProgress,p.contractCurrency))}${line('Remaining contract (source amount)',p.sourceRemaining===null?null:moneyLabel(p.sourceRemaining,p.contractCurrency))}${line('Project status',p.status)}</div></section>
+ <div class="v4-project-side">${d?projectDocumentCardV4(d,'contract')+projectDocumentCardV4(d,'project_numbers')+projectTeamV4(d):dataStatus('Project details',detailsError,'retry-details')}</div></div>
  ${portalRegisteredPayments(p)}
  ${dashboardV5?v5FinancialPanel(p):dataStatus('Project financial analysis',dashboardError,'retry-dashboard')}
  ${d?projectRecordsV4(d):''}`;
 }
 
+
+function projectDocumentCardV4(d,type){
+ const contract=type==='contract',title=contract?'Contract':'Project Numbers';
+ const docs=(d?.documents||[]).filter(x=>x.document_type===type);
+ const fileRows=docs.map(x=>`<div class="v4-file"><strong>${h(x.original_name)}</strong>${contract&&x.preview_pdf_path?`<button class="btn small" data-v4="pdf" data-doc="${h(x.id)}" type="button">View PDF</button>`:''}<button class="btn small" data-v4="file" data-doc="${h(x.id)}" type="button">${contract?'Download':'Download file'}</button></div>`).join('');
+ const pending=pendingV4?.document?.document_type===type;
+ return `<section class="card panel v4-section v4-side-card" aria-label="${title}">
+  <h2 class="paneltitle">${title}</h2>
+  ${fileRows||`<p class="v4-side-empty">${contract?'No contract attached.':'No numbers file attached.'}</p>`}
+  <form id="${contract?'contract-v4':'numbers-v4'}" class="v4-inline v4-side-upload">
+   <input name="file" aria-label="${contract?'Contract file':'Project numbers file'}" type="file" accept="${contract?'.pdf,.doc,.docx':'.xls,.xlsx,.pdf,.doc,.docx'}" required>
+   <button class="btn" type="submit">${contract?'Upload contract':'Upload numbers'}</button>
+  </form>
+  ${pending?`<div id="existing-proposal-v4" class="v4-proposal">${renderSuggestedV4(pendingV4.proposed)}</div>`:''}
+ </section>`;
+}
+
 function projectTeamV4(d){
- return lead()?`<section class="card panel v4-section"><h2 class="paneltitle">Project Team</h2>
- <div class="v4-file">${(d?.assignments||[]).map(a=>h((d?.people||[]).find(u=>u.id===a.user_id)?.display_name||'Assigned employee')).join(', ')||'No team members assigned.'}</div>
- <form id="assign-v4" class="v4-inline"><label>Assign Team Member
- <select name="userId" required><option value="">Select employee</option>${(d?.people||[]).filter(u=>u.role==='team_member'&&!(d?.assignments||[]).some(a=>a.user_id===u.id)).map(u=>`<option value="${h(u.id)}">${h(u.display_name)}</option>`).join('')}</select></label>
- <button class="btn" type="submit">Assign</button></form></section>`:'';
+ if(!lead())return '';
+ const members=(d?.assignments||[]).map(a=>h((d?.people||[]).find(u=>u.id===a.user_id)?.display_name||'Assigned employee')).join(', ');
+ return `<section class="card panel v4-section v4-side-card" aria-label="Project Team">
+  <h2 class="paneltitle">Project Team</h2>
+  <p class="v4-side-empty">${members||'No team members assigned.'}</p>
+  <form id="assign-v4" class="v4-inline v4-side-upload">
+   <label>Assign Team Member
+    <select name="userId" required><option value="">Select employee</option>${(d?.people||[]).filter(u=>u.role==='team_member'&&!(d?.assignments||[]).some(a=>a.user_id===u.id)).map(u=>`<option value="${h(u.id)}">${h(u.display_name)}</option>`).join('')}</select>
+   </label>
+   <button class="btn" type="submit">Assign</button>
+  </form>
+ </section>`;
 }
 
 function projectRecordsV4(d){
- const {monthly:allMonthly=[],lines=[],actuals=[],documents:docs=[],history=[]}=d;
+ const {monthly:allMonthly=[],lines=[],actuals=[],history=[]}=d;
  const totals=portalScheduledMonths(fromProject(chosen),allMonthly);
  return `<section class="card panel v4-section"><h2 class="paneltitle">Monthly Budget</h2><p class="v5-context">Project end: ${h(portalProjectEndText(fromProject(chosen)))}</p>${totals.length?`<div class="table-wrap"><table><thead><tr><th>Period</th><th>Currency</th><th>Approved</th><th>Working budget</th><th></th></tr></thead><tbody>${totals.map(r=>`<tr><td>${h(r.period_start)}</td><td>${h(r.currency)}</td><td>${fmt(r.baseline_amount===null?null:Number(r.baseline_amount))}</td><td><input class="v4-amount" data-money="monthly-${h(r.period_start)}" type="number" step="0.01" value="${r.current_amount??''}"></td><td><button class="btn small" data-v4="save-money" data-kind="monthly" data-entry="${h(r.period_start)}" data-updated="${h(r.updated_at)}">Save</button></td></tr>`).join('')}</tbody></table></div>`:'<p>No budget entered.</p>'}<form id="add-period-v4" class="v4-inline"><label>Add month or year <input type="month" name="period" required></label><button class="btn">Add month</button></form></section>
  <section class="card panel v4-section"><h2 class="paneltitle">Detailed Budget &amp; COGS</h2><p class="v5-context">Full-year reference cost lines may extend beyond scheduled project budget months. The 2027 Monthly Project Budget above follows the current project end. Source cost lines outside that period remain visible for audit but do not automatically extend the approved budget.</p>${lines.length?`<details><summary>View ${lines.length} budget entries</summary><div class="table-wrap v4-scroll"><table><thead><tr><th>Period</th><th>Category</th><th>Detail</th><th>Approved</th><th>Working</th><th></th></tr></thead><tbody>${lines.map(r=>`<tr><td>${h(r.period_start)}</td><td>${h(r.category)}</td><td>${h(r.detail)}</td><td>${fmt(r.baseline_amount===null?null:Number(r.baseline_amount))} ${h(r.currency)}</td><td><input class="v4-amount" data-money="line-${r.id}" type="number" step="0.01" value="${r.current_amount??''}"></td><td><button class="btn small" data-v4="save-money" data-kind="line" data-entry="${r.id}" data-updated="${h(r.updated_at)}">Save</button></td></tr>`).join('')}</tbody></table></div></details>`:'<p>No cost details entered.</p>'}</section>
  <section class="card panel v4-section"><h2 class="paneltitle">Historical P&amp;L Actuals</h2>${actuals.length?`<div class="table-wrap"><table><thead><tr><th>Period</th><th>Account</th><th>Currency</th><th>Amount</th><th></th></tr></thead><tbody>${actuals.map(r=>`<tr><td>${h(r.period_start)}</td><td>${h(r.account_name)}</td><td>${h(r.currency)}</td><td>${lead()?`<input class="v4-amount" data-money="actual-${r.id}" type="number" step="0.01" value="${r.amount}">`:fmt(Number(r.amount))}</td><td>${lead()?`<button class="btn small" data-v4="save-money" data-kind="actual" data-entry="${r.id}" data-updated="${h(r.updated_at)}">Save</button>`:''}</td></tr>`).join('')}</tbody></table></div>`:'<p>No historical P&amp;L actuals recorded.</p>'}</section>
- <section class="card panel v4-section"><h2 class="paneltitle">Contract</h2>${docs.filter(x=>x.document_type==='contract').map(x=>`<div class="v4-file"><strong>${h(x.original_name)}</strong>${x.preview_pdf_path?`<button class="btn small" data-v4="pdf" data-doc="${h(x.id)}">View PDF</button>`:''}<button class="btn small" data-v4="file" data-doc="${h(x.id)}">Download</button></div>`).join('')||'<p>No contract attached.</p>'}<form id="contract-v4" class="v4-inline"><input name="file" type="file" accept=".pdf,.doc,.docx" required><button class="btn">Upload contract</button></form>
- <h2 class="paneltitle v6-subheading">Project Numbers</h2>${docs.filter(x=>x.document_type==='project_numbers').map(x=>`<div class="v4-file"><strong>${h(x.original_name)}</strong><button class="btn small" data-v4="file" data-doc="${h(x.id)}">Download file</button></div>`).join('')||'<p>No numbers file attached.</p>'}<form id="numbers-v4" class="v4-inline"><input name="file" type="file" accept=".xls,.xlsx,.pdf,.doc,.docx" required><button class="btn">Upload numbers</button></form><div id="existing-proposal-v4" class="v4-proposal" ${pendingV4?'':'hidden'}>${pendingV4?renderSuggestedV4(pendingV4.proposed):''}</div></section>
  <section class="card panel v4-section"><h2 class="paneltitle">Financial Change History</h2>${history.length?`<div class="table-wrap"><table><thead><tr><th>Date / Time (Cairo)</th><th>Changed by</th><th>Field</th><th>Previous</th><th>New</th></tr></thead><tbody>${history.map(x=>`<tr><td>${h(date(x.edited_at))}</td><td>${h((d?.people||[]).find(u=>u.id===x.edited_by)?.display_name||'Unavailable')}</td><td>${h(x.financial_area+' · '+x.entry_key)}</td><td>${h(x.previous_value??'—')}</td><td>${h(x.new_value??'—')}</td></tr>`).join('')}</tbody></table></div>`:'<p>No financial changes recorded.</p>'}</section>`;
 }
 
