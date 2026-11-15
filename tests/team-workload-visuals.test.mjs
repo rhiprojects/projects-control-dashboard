@@ -32,26 +32,29 @@ function teamFixture(projects=testProjects){
  const html=factory({people,assignments},projects,()=>true,mockChart,value=>String(value));
  return {html,chart:captured[0]};
 }
-test('chart uses two active project people with 7/2 oversight and direct counts',()=>{
+test('team chart and roster show members only, not the manager or administrator',()=>{
  const {html,chart}=teamFixture();
  assert.equal(chart[1],'horizontal');
- assert.deepEqual(chart[2],['Head of Projects','Site Engineer']);
- assert.deepEqual(chart[3][0].values,[7,2]);
+ assert.deepEqual(chart[2],['Site Engineer']);
+ assert.deepEqual(chart[3][0].values,[2]);
  assert.equal(chart[5].maxProjects,7);
- assert.match(html,/Portfolio oversight/);
- assert.match(html,/Direct assignment/);
- assert.doesNotMatch(html,/System Admin|Inactive Member|999/);
+ assert.match(html,/Assigned Projects/);
+ assert.match(html,/Project codes/);
+ assert.match(html,/736, 776/);
+ assert.doesNotMatch(html,/Head of Projects<\/strong>|System Admin|Inactive Member|999|Portfolio oversight/);
+ assert.ok(html.indexOf('v8-team-graph')<html.indexOf('v8-team-members'),'Chart is on the left of the roster');
 });
-test('maximum and scope are based on accessible project records, never hardcoded',()=>{
+test('axis maximum uses all visible projects while bars use direct member assignments',()=>{
  const {chart,html}=teamFixture(testProjects.slice(0,3));
  assert.equal(chart[5].maxProjects,3);
- assert.deepEqual(chart[3][0].values,[3,2]);
- assert.match(html,/736, 776, 782/);
+ assert.deepEqual(chart[3][0].values,[2]);
+ assert.deepEqual(chart[2],['Site Engineer']);
+ assert.match(html,/736, 776/);
 });
 test('horizontal ECharts uses project count on x and member names on y without fractional ticks',async()=>{
  const body=section('async function v7RenderCharts(){','function v5FinancialPanel(');
- const payload={kind:'horizontal',labels:['Head of Projects','Site Engineer'],
-  series:[{name:'Projects in Scope',values:[7,2]}],maxProjects:7,currency:''};
+ const payload={kind:'horizontal',labels:['Site Engineer'],
+  series:[{name:'Projects in Scope',values:[2]}],maxProjects:7,currency:''};
  const element={dataset:{chart:JSON.stringify(payload)},isConnected:true,textContent:''};
  let options;
  const chart={setOption:value=>{options=value},resize:()=>{},dispose:()=>{}};
@@ -67,7 +70,7 @@ test('horizontal ECharts uses project count on x and member names on y without f
  assert.equal(options.yAxis.type,'category');
  assert.equal(options.yAxis.inverse,true);
  assert.deepEqual(options.yAxis.data,payload.labels);
- assert.deepEqual(options.series[0].data,[7,2]);
+ assert.deepEqual(options.series[0].data,[2]);
  assert.equal(options.xAxis.axisLabel.formatter(1.5),'');
  assert.equal(options.xAxis.axisLabel.formatter(2),'2');
 });
@@ -86,10 +89,17 @@ test('vertical financial charts retain original bar orientation',async()=>{
  assert.equal(options.yAxis.type,'value');
 });
 test('palette uses only supplied five shades, preserving CSS white-space rules',()=>{
- const colors=['F4F6FB','DBE2F2','B3C0DD','7B88B6','3A4061'];
+ const colors=['FFFFFF','F4F6FB','DBE2F2','B3C0DD','7B88B6','3A4061'];
  const literal=[...new Set([...css.matchAll(/#[a-fA-F0-9]{3,8}\b/g)].map(x=>x[0].slice(1).toUpperCase()))];
  for(const hex of literal)assert.ok(colors.includes(hex)||colors.some(value=>new RegExp('^'+value+'[0-9A-F]{2}$').test(hex)),hex);
  assert.match(css,/white-space:/);
  assert.match(css,/--white:/);
  assert.doesNotMatch(css,/#F4F6FB-space|--#F4F6FB/);
+});
+
+test('pure white page canvas, side-by-side workload panels and responsive stacking',()=>{
+ assert.match(css,/--portal-canvas:\s*#FFFFFF/);
+ assert.match(css,/\.v8-team-layout\s*\{[^}]*grid-template-columns:\s*minmax\(0,1\.45fr\)\s+minmax\(0,1fr\)/);
+ assert.match(css,/@media\(max-width:1050px\)\s*\{\.v8-team-layout\s*\{grid-template-columns:1fr/);
+ assert.match(css,/\.v8-team-members\s*\{[^}]*background:#FFFFFF/);
 });
