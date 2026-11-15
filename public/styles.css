@@ -791,3 +791,14 @@ html,body,.app,.main,.content{background:#FFFFFF}
  .ai-topics-v4{grid-template-columns:repeat(2,minmax(0,1fr))}
  .overview-header{flex-wrap:wrap}
 }
+
+/* Phase 4 refinement: financial summary numbers match top dashboard KPI figures. */
+.v5-portfolio-item>strong,
+.v5-metrics strong{
+ font-size:22px;
+ font-weight:750;
+ line-height:1.2;
+ letter-spacing:-.025em;
+ font-variant-numeric:tabular-nums;
+ overflow-wrap:anywhere;
+}
