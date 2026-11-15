@@ -134,7 +134,8 @@ function v7Chart(title,kind,labels,series,currency='',options={}){
  if(!labels.length||!series.length)return '';
  const isHorizontal=kind==='horizontal';
  const payload=JSON.stringify({kind,labels,series,currency,...options});
- return '<div class="v7-chart-panel'+(isHorizontal?' v7-team-chart-panel':'')+'"><h3>'+h(title)+'</h3><div class="v7-chart'+(isHorizontal?' v7-chart-horizontal':'')+'"'+(isHorizontal?' style="--team-bars:'+labels.length+'"':'')+' role="img" aria-label="'+h(title)+'" data-chart="'+h(payload)+'"></div><p class="v7-chart-note">'+(isHorizontal?'Head of Projects: portfolio oversight. Team members: directly assigned projects. Counts are not hours or utilization.':'Values reflect available records only. Refer to the table for exact figures.')+'</p></div>';
+ const chartHeight=isHorizontal?' style="height:'+Math.max(265,140+labels.length*56)+'px"':'';
+ return '<div class="v7-chart-panel'+(isHorizontal?' v7-team-chart-panel':'')+'"><h3>'+h(title)+'</h3><div class="v7-chart'+(isHorizontal?' v7-chart-horizontal':'')+'"'+chartHeight+' role="img" aria-label="'+h(title)+'" data-chart="'+h(payload)+'"></div><p class="v7-chart-note">'+(isHorizontal?'Head of Projects: portfolio oversight. Team members: directly assigned projects. Counts are not hours or utilization.':'Values reflect available records only. Refer to the table for exact figures.')+'</p></div>';
 }
 function v7LoadCharts(){
  if(window.echarts)return Promise.resolve(window.echarts);
