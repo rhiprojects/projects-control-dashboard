@@ -679,11 +679,11 @@ function editProjectV4(){
  const finish=lead()?[['baselineFinish','Planned finish (exact date)','date',p.baselineFinish],['forecastFinish','Revised project end (exact date)','date',p.forecastFinish]]:[];
  return heading('Projects','Edit Project',p.id+' · '+(p.displayName||p.client||p.name),'<button class="btn" data-v4="cancel-edit">Back to project</button>')+
  `<section class="card panel"><p class="v5-context"><strong>Current project end:</strong> ${h(portalProjectEndText(p))}. The revised finish date, if entered by a project lead, takes priority; no budget amounts are created automatically.</p>
- <form id="edit-v4" class="project-form">${formFeedback()}
+ <form id="edit-v4" class="project-form">
  ${projectFormGroup('Project information',projectFields([['client','Client','text',p.client],['scope','Project scope','text',p.scope],['location','Location','text',p.location]])+owner+status)}
  ${projectFormGroup('Contract and progress',projectFields([['contractValue','Contract value'+(p.contractCurrency?' · '+p.contractCurrency:''),'number',p.contractValue],['progress','Physical progress (%)','number',p.progress]]))}
  ${projectFormGroup('Schedule',projectFields([['startDate','Planned start','date',p.startDate],...finish,['durationMonths','Recorded duration (months)','number',p.durationMonths]]))}
- <div class="form-actions"><button class="btn" type="button" data-v4="cancel-edit">Cancel</button><button class="btn primary">Save changes</button></div></form></section>`;
+ <div class="form-actions edit-save-actions"><button class="btn" type="button" data-v4="cancel-edit">Cancel</button><button class="btn primary">Save changes</button><div class="edit-save-feedback"><p class="portal-form-error edit-save-error" data-form-error role="alert" tabindex="-1" hidden></p><p class="portal-form-status" data-form-status role="status"></p></div></div></form></section>`;
 }
 
 function financePageV4(){
@@ -941,14 +941,21 @@ ROOT.addEventListener('submit',async event=>{
   if(editingRequest)return;
   const f=new FormData(form),str=k=>String(f.get(k)||'').trim();
   const current=fromProject(chosen);
-  const changes={client:str('client'),scope:str('scope'),contractValue:str('contractValue')===''?null:Number(str('contractValue')),
+  const proposed={client:str('client'),scope:str('scope'),contractValue:str('contractValue')===''?null:Number(str('contractValue')),
    progress:str('progress')===''?null:Number(str('progress')),location:str('location')||null,
    startDate:str('startDate')||null,durationMonths:str('durationMonths')===''?null:Number(str('durationMonths')),status:str('status')};
   if(lead()){
-   changes.baselineFinish=str('baselineFinish')||null;
-   changes.forecastFinish=str('forecastFinish')||null;
-   changes.internalOwnerId=str('internalOwnerId')||null;
+   proposed.baselineFinish=str('baselineFinish')||null;
+   proposed.forecastFinish=str('forecastFinish')||null;
+   proposed.internalOwnerId=str('internalOwnerId')||null;
   }
+  const changes=Object.fromEntries(Object.entries(proposed).filter(([key,next])=>{
+   const recorded=current[key];
+   if((typeof next==='string'||next===null)&&(typeof recorded==='string'||recorded===null||recorded===undefined))
+    return String(next??'').trim()!==String(recorded??'').trim();
+   return next!==recorded;
+  }));
+  if(!Object.keys(changes).length){formMessage(form,'',true);formMessage(form,'No changes to save.');return;}
   editingRequest=true;
   const submit=form.querySelector('.form-actions .primary');
   submit.disabled=true;
@@ -957,7 +964,7 @@ ROOT.addEventListener('submit',async event=>{
   try{const r=await api('/api/projects/'+encodeURIComponent(chosen),{method:'PUT',body:{lastEdited:current.lastEdited,changes}});
    const i=projects.findIndex(p=>p.id===chosen);if(i>=0)projects[i]=r.project;
    edit=false;await loadDetailsV4();showNotice('Project updated.');focusPage();
-  }catch(err){formMessage(form,String(err.message||err),true);}
+  }catch(err){const message=String(err.message||err);formMessage(form,message==='Project request failed'?'Unable to save the changes. Please try again or contact the administrator.':message,true);}
   finally{editingRequest=false;submit.disabled=false;formMessage(form,'');}
   return;
  }
