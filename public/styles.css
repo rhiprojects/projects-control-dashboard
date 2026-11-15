@@ -880,3 +880,56 @@ html,body,.app,.main,.content{background:#FFFFFF}
  .dashboard-timeline-scroll{overflow:visible}
  .dashboard-timeline-grid{min-width:0}
 }
+
+
+/* Phase 4 header AI: one compact composer; standalone assistant conversation on its own tab. */
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.topbar .breadcrumbs{flex:0 1 auto;min-width:0}
+.topbar-ai{
+ display:flex;align-items:center;justify-content:space-between;
+ gap:5px;flex:0 1 400px;width:400px;max-width:52%;min-width:195px;
+ height:37px;padding:3px 4px 3px 11px;margin:0 0 0 auto;
+ background:#FFFFFF;border:1px solid #C5D8EA;border-radius:9px;
+ transition:border-color .15s ease,box-shadow .15s ease
+}
+.topbar-ai:focus-within{border-color:#2C7BB8;box-shadow:0 0 0 2px #E1EFFA}
+.topbar-ai input{
+ display:block;min-width:0;flex:1;height:100%;background:transparent!important;
+ border:0!important;outline:0!important;box-shadow:none!important;
+ padding:0 6px;color:#1C3349;font-size:13px;line-height:1.2
+}
+.topbar-ai input::placeholder{color:#617B93;opacity:1}
+.topbar-ai button{
+ flex:none;display:grid;place-items:center;height:30px;width:35px;
+ padding:0;border:0;border-radius:6px;cursor:pointer;
+ background:#246EB0;color:#FFFFFF
+}
+.topbar-ai button:hover{background:#194F80}
+.topbar-ai button:disabled{opacity:.55;cursor:wait}
+.topbar-ai button .ui-icon{width:17px;height:17px;stroke-width:2}
+.assistant-workspace{max-width:980px;margin:0 auto;padding:6px 0}
+.assistant-workspace .ai-card-v4{min-height:360px}
+.assistant-page-heading{
+ position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;
+ clip:rect(0,0,0,0);white-space:nowrap;border:0
+}
+.overview-projects-section{margin-top:14px;margin-bottom:20px}
+.overview-projects-section>.panel{max-width:none}
+.overview-projects-section .list-naked{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 24px
+}
+.overview-projects-section .list-naked li{min-width:0}
+.financial-exact-summary{margin-bottom:16px}
+@media(max-width:780px){
+ .topbar{gap:10px}
+ .topbar .breadcrumbs{flex:none}
+ .topbar .breadcrumbs>span,.topbar .breadcrumbs>strong{display:none}
+ .topbar-ai{flex:1 1 auto;width:auto;max-width:none;min-width:0;margin-left:auto}
+ .topbar-ai input{font-size:12px}
+ .overview-projects-section .list-naked{grid-template-columns:1fr}
+}
+@media(max-width:440px){
+ .topbar-ai{height:36px}
+ .topbar-ai button{width:33px}
+ .topbar-ai input{font-size:12px;padding:0 3px}
+}
