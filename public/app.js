@@ -637,9 +637,9 @@ function projectTeamV4(d){
 function projectRecordsV4(d){
  const {monthly:allMonthly=[],lines=[],actuals=[],history=[]}=d;
  const totals=portalScheduledMonths(fromProject(chosen),allMonthly);
- return `<section class="card panel v4-section"><h2 class="paneltitle">Monthly Budget</h2><p class="v5-context">Project end: ${h(portalProjectEndText(fromProject(chosen)))}</p>${totals.length?`<div class="table-wrap"><table><thead><tr><th>Period</th><th>Currency</th><th>Approved</th><th>Working budget</th><th></th></tr></thead><tbody>${totals.map(r=>`<tr><td>${h(r.period_start)}</td><td>${h(r.currency)}</td><td>${fmt(r.baseline_amount===null?null:Number(r.baseline_amount))}</td><td><input class="v4-amount" data-money="monthly-${h(r.period_start)}" type="number" step="0.01" value="${r.current_amount??''}"></td><td><button class="btn small" data-v4="save-money" data-kind="monthly" data-entry="${h(r.period_start)}" data-updated="${h(r.updated_at)}">Save</button></td></tr>`).join('')}</tbody></table></div>`:'<p>No budget entered.</p>'}<form id="add-period-v4" class="v4-inline"><label>Add month or year <input type="month" name="period" required></label><button class="btn">Add month</button></form></section>
- <section class="card panel v4-section"><h2 class="paneltitle">Detailed Budget &amp; COGS</h2><p class="v5-context">Full-year reference cost lines may extend beyond scheduled project budget months. The 2027 Monthly Project Budget above follows the current project end. Source cost lines outside that period remain visible for audit but do not automatically extend the approved budget.</p>${lines.length?`<details><summary>View ${lines.length} budget entries</summary><div class="table-wrap v4-scroll"><table><thead><tr><th>Period</th><th>Category</th><th>Detail</th><th>Approved</th><th>Working</th><th></th></tr></thead><tbody>${lines.map(r=>`<tr><td>${h(r.period_start)}</td><td>${h(r.category)}</td><td>${h(r.detail)}</td><td>${fmt(r.baseline_amount===null?null:Number(r.baseline_amount))} ${h(r.currency)}</td><td><input class="v4-amount" data-money="line-${r.id}" type="number" step="0.01" value="${r.current_amount??''}"></td><td><button class="btn small" data-v4="save-money" data-kind="line" data-entry="${r.id}" data-updated="${h(r.updated_at)}">Save</button></td></tr>`).join('')}</tbody></table></div></details>`:'<p>No cost details entered.</p>'}</section>
- <section class="card panel v4-section"><h2 class="paneltitle">Historical P&amp;L Actuals</h2>${actuals.length?`<div class="table-wrap"><table><thead><tr><th>Period</th><th>Account</th><th>Currency</th><th>Amount</th><th></th></tr></thead><tbody>${actuals.map(r=>`<tr><td>${h(r.period_start)}</td><td>${h(r.account_name)}</td><td>${h(r.currency)}</td><td>${lead()?`<input class="v4-amount" data-money="actual-${r.id}" type="number" step="0.01" value="${r.amount}">`:fmt(Number(r.amount))}</td><td>${lead()?`<button class="btn small" data-v4="save-money" data-kind="actual" data-entry="${r.id}" data-updated="${h(r.updated_at)}">Save</button>`:''}</td></tr>`).join('')}</tbody></table></div>`:'<p>No historical P&amp;L actuals recorded.</p>'}</section>
+ return `<section class="card panel v4-section"><h2 class="paneltitle">Monthly Budget</h2><p class="v5-context">Project end: ${h(portalProjectEndText(fromProject(chosen)))}</p>${totals.length?`<div class="table-wrap"><table><thead><tr><th>Period</th><th>Currency</th><th>Approved</th><th>Working budget</th><th></th></tr></thead><tbody>${totals.map(r=>`<tr><td>${h(r.period_start)}</td><td>${h(r.currency)}</td><td>${fmt(r.baseline_amount===null?null:Number(r.baseline_amount))}</td><td><input class="v4-amount" data-money="monthly-${h(r.period_start)}" type="number" step="0.01" value="${r.current_amount??''}"></td><td><span class="budget-save-feedback"><button class="btn small" data-v4="save-money" data-kind="monthly" data-entry="${h(r.period_start)}" data-updated="${h(r.updated_at)}">Save</button><span class="budget-save-error" data-save-error role="alert" hidden></span></span></td></tr>`).join('')}</tbody></table></div>`:'<p>No budget entered.</p>'}<form id="add-period-v4" class="v4-inline"><label>Add month or year <input type="month" name="period" required></label><button class="btn">Add month</button></form></section>
+ <section class="card panel v4-section"><h2 class="paneltitle">Detailed Budget &amp; COGS</h2><p class="v5-context">Full-year reference cost lines may extend beyond scheduled project budget months. The 2027 Monthly Project Budget above follows the current project end. Source cost lines outside that period remain visible for audit but do not automatically extend the approved budget.</p>${lines.length?`<details><summary>View ${lines.length} budget entries</summary><div class="table-wrap v4-scroll"><table><thead><tr><th>Period</th><th>Category</th><th>Detail</th><th>Approved</th><th>Working</th><th></th></tr></thead><tbody>${lines.map(r=>`<tr><td>${h(r.period_start)}</td><td>${h(r.category)}</td><td>${h(r.detail)}</td><td>${fmt(r.baseline_amount===null?null:Number(r.baseline_amount))} ${h(r.currency)}</td><td><input class="v4-amount" data-money="line-${r.id}" type="number" step="0.01" value="${r.current_amount??''}"></td><td><span class="budget-save-feedback"><button class="btn small" data-v4="save-money" data-kind="line" data-entry="${r.id}" data-updated="${h(r.updated_at)}">Save</button><span class="budget-save-error" data-save-error role="alert" hidden></span></span></td></tr>`).join('')}</tbody></table></div></details>`:'<p>No cost details entered.</p>'}</section>
+ <section class="card panel v4-section"><h2 class="paneltitle">Historical P&amp;L Actuals</h2>${actuals.length?`<div class="table-wrap"><table><thead><tr><th>Period</th><th>Account</th><th>Currency</th><th>Amount</th><th></th></tr></thead><tbody>${actuals.map(r=>`<tr><td>${h(r.period_start)}</td><td>${h(r.account_name)}</td><td>${h(r.currency)}</td><td>${lead()?`<input class="v4-amount" data-money="actual-${r.id}" type="number" step="0.01" value="${r.amount}">`:fmt(Number(r.amount))}</td><td>${lead()?`<span class="budget-save-feedback"><button class="btn small" data-v4="save-money" data-kind="actual" data-entry="${r.id}" data-updated="${h(r.updated_at)}">Save</button><span class="budget-save-error" data-save-error role="alert" hidden></span></span>`:''}</td></tr>`).join('')}</tbody></table></div>`:'<p>No historical P&amp;L actuals recorded.</p>'}</section>
  <section class="card panel v4-section"><h2 class="paneltitle">Financial Change History</h2>${history.length?`<div class="table-wrap"><table><thead><tr><th>Date / Time (Cairo)</th><th>Changed by</th><th>Field</th><th>Previous</th><th>New</th></tr></thead><tbody>${history.map(x=>`<tr><td>${h(date(x.edited_at))}</td><td>${h((d?.people||[]).find(u=>u.id===x.edited_by)?.display_name||'Unavailable')}</td><td>${h(x.financial_area+' · '+x.entry_key)}</td><td>${h(x.previous_value??'—')}</td><td>${h(x.new_value??'—')}</td></tr>`).join('')}</tbody></table></div>`:'<p>No financial changes recorded.</p>'}</section>`;
 }
 
@@ -827,16 +827,26 @@ ROOT.addEventListener('click',async event=>{
  }
  if(action==='save-money'){
   const kind=button.dataset.kind,entry=button.dataset.entry,
-    input=document.querySelector('[data-money="'+kind+'-'+entry+'"]');
-  if(!input)return;const amount=input.value===''?null:Number(input.value);
-  if(amount!==null&&!Number.isFinite(amount)){setError('Invalid amount');return;}
+    input=document.querySelector('[data-money="'+kind+'-'+entry+'"]'),
+    feedback=button.parentElement?.querySelector('[data-save-error]');
+  if(!input)return;
+  const showSaveError=message=>{
+   if(!feedback)return;
+   feedback.textContent=message;
+   feedback.hidden=!message;
+  };
+  showSaveError('');
+  const amount=input.value===''?null:Number(input.value);
+  if(amount!==null&&!Number.isFinite(amount)){showSaveError('Enter a valid amount.');return;}
   button.disabled=true;
   try{await api('/api/finance',{method:'PUT',body:{projectCode:chosen,kind,
    period:kind==='monthly'?entry:undefined,id:kind==='monthly'?undefined:entry,
    updatedAt:button.dataset.updated,amount}});
    await loadDetailsV4();showNotice('Budget updated.');
-  }catch(err){setError(err)}
-  finally{button.disabled=false}
+  }catch(err){
+   const message=String(err?.message||err);
+   showSaveError(message==='Project request failed'?'Budget amount could not be saved. Contact the administrator.':message);
+  }finally{button.disabled=false}
   return;
  }
  if(action==='apply-precreate'){
