@@ -230,6 +230,7 @@ html,body,.app,.main,.content{background:#FFFFFF}
 .v8-team-graph,.v8-team-members{min-width:0}
 .v8-team-graph .v7-chart-panel{margin:0}
 .v8-team-members{
+ background:#FFFFFF;
  border:1px solid var(--portal-divider);
  border-radius:12px;
  padding:18px;
