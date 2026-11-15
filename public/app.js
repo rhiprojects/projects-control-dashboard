@@ -294,9 +294,31 @@ function portalProjectEnd(p){
  if(!month)return null;
  return {month,label:new Intl.DateTimeFormat('en-US',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(month+'-01T00:00:00Z')),source:'2027 approved budget; exact day not recorded'};
 }
+
+function portalBudgetCoverage(p){
+ if(!p||!dashboardV5)return null;
+ const funded=v7MonthlyBudget(p.id).filter(x=>v5Number(x.baseline_amount)!==null&&Number(x.baseline_amount)!==0);
+ if(!funded.length)return null;
+ const periods=[...new Set(funded.map(x=>String(x.period_start).slice(0,7)))].sort();
+ return {months:periods.length,first:periods[0],last:periods[periods.length-1]};
+}
+function portalRegisteredPayments(p){
+ const receipts=p?.registeredReceipts;
+ if(!receipts||typeof receipts!=='object')return '';
+ const periods=[['2024','2024'],['2025','2025'],['2026-01','Jan 2026'],['2026-02','Feb 2026'],
+  ['2026-03','Mar 2026'],['2026-04','Apr 2026'],['2026-05','May 2026'],['2026-06','Jun 2026']];
+ const rows=periods.filter(([key])=>v5Number(receipts[key])!==null);
+ if(!rows.length)return '';
+ return '<section class="card panel v4-section"><h2 class="paneltitle">Recorded Payments From Project Register</h2>'+
+ '<p class="v5-context">These are financial amounts from the ongoing-project register in the original contract currency. They are not historical P&amp;L revenue or physical progress percentages.</p>'+
+ '<div class="table-wrap"><table><thead><tr><th>Period</th><th>Recorded payment</th></tr></thead><tbody>'+
+ rows.map(([key,label])=>'<tr><td>'+h(label)+'</td><td>'+h(moneyLabel(Number(receipts[key]),p.contractCurrency))+'</td></tr>').join('')+
+ '</tbody></table></div></section>';
+}
+
 function portalProjectEndText(p){
  const end=portalProjectEnd(p);
- return end?end.label+(end.source==='2027 approved budget; exact day not recorded'?' (budget month; day not recorded)':''):'Not recorded';
+ return end?end.label:'Not recorded';
 }
 function portalScheduledMonths(p,rows){
  const end=portalProjectEnd(p);
@@ -480,7 +502,7 @@ function v5Portfolio(){
  const charts=currencies.map(currency=>{
   const labels=[],values=[];
   active().filter(p=>v7BudgetCurrency(p.id)===currency).forEach(p=>{
-   const total=v7Total(v7MonthlyBudget(p.id).filter(x=>x.currency===currency),'baseline_amount');
+   const total=v7Total(portalScheduledMonths(p,v7MonthlyBudget(p.id).filter(x=>x.currency===currency)),'baseline_amount');
    if(total!==null){labels.push(p.id);values.push(total);}
   });
   const exactRows=active().filter(p=>v7BudgetCurrency(p.id)===currency).map(p=>{
@@ -506,9 +528,9 @@ function overviewV4(){
 }
 
 function createV4(){
- const fields=[['projectCode','Project code','text'],['client','Client / contracting organization','text'],['scope','Project scope','text'],['contractValue','Contract value','number'],['location','Location','text'],['startDate','Planned start','date'],['baselineFinish','Planned finish','date'],['forecastFinish','Forecast finish','date'],['durationMonths','Duration (months)','number']];
+ const fields=[['projectCode','Project code','text'],['client','Client / contracting organization','text'],['scope','Project scope','text'],['contractValue','Contract value','number'],['progress','Physical progress (%)','number'],['location','Location','text'],['startDate','Planned start','date'],['baselineFinish','Planned finish','date'],['forecastFinish','Forecast finish','date'],['durationMonths','Recorded duration (months)','number']];
  return heading('Projects','Create New Project','Enter project information and attach files.')+
- `<section class="card panel"><form id="create-v4"><div class="v4-formgrid">${fields.map(([name,label,type])=>`<label>${label}<input name="${name}" type="${type}" ${['projectCode','client','scope'].includes(name)?'required':''} ${type==='number'?'min="0" step="0.01"':''}></label>`).join('')}<label>Currency<select name="currency"><option selected>EGP</option><option>USD</option><option>EUR</option><option>Other</option></select></label><label>Contract file (PDF or Word)<input name="contract" type="file" accept=".pdf,.doc,.docx"></label><label>Project Numbers (Excel, PDF or Word)<input id="numbers-precreate-v4" name="numbers" type="file" accept=".xls,.xlsx,.pdf,.doc,.docx"></label></div><div id="numbers-proposal-v4" class="v4-proposal" hidden></div><div class="form-actions"><button class="btn" type="button" data-v4="cancel-create">Cancel</button><button class="btn primary">Create project</button></div></form></section>`;
+ `<section class="card panel"><form id="create-v4"><div class="v4-formgrid">${fields.map(([name,label,type])=>`<label>${label}<input name="${name}" type="${type}" ${['projectCode','client','scope','contractValue'].includes(name)?'required':''} ${type==='number'?'min="0" step="0.01"':''}></label>`).join('')}<label>Currency<select name="currency"><option selected>EGP</option><option>USD</option><option>EUR</option><option>Other</option></select></label><label>Contract file (PDF or Word)<input id="contract-precreate-v4" name="contract" type="file" accept=".pdf,.doc,.docx"></label><label>Project Numbers (Excel, PDF or Word)<input id="numbers-precreate-v4" name="numbers" type="file" accept=".xls,.xlsx,.pdf,.doc,.docx"></label></div><div id="contract-proposal-v4" class="v4-proposal" hidden></div><div id="numbers-proposal-v4" class="v4-proposal" hidden></div><div class="form-actions"><button class="btn" type="button" data-v4="cancel-create">Cancel</button><button class="btn primary">Create project</button></div></form></section>`;
 }
 
 function projectViewV4(){
@@ -517,8 +539,9 @@ function projectViewV4(){
  const owner=p.internalOwnerId===me.userId?me.displayName:!p.internalOwnerId?'Not assigned':
    d?.people?.find(u=>u.id===p.internalOwnerId)?.display_name||(d||detailsError?'Unavailable':'Loading…');
  return heading('Projects',`${h(p.id)} · ${h(p.displayName||p.client)}`,h(p.scope||''),`<button class="btn" data-v4="back">Back</button><button class="btn primary" data-v4="edit"${!d?' disabled':''}>Edit Project</button>`)+
- `<section class="card panel v4-section"><h2 class="paneltitle">Project Information</h2><div class="v4-facts">${line('Project end',portalProjectEndText(p))}${line('Internal owner',owner)}${line('Client / contracting organization',p.client)}${line('Contract value',moneyLabel(p.contractValue,p.contractCurrency))}${line('Physical progress',p.progress===null?'Not recorded':p.progress+'%')}${line('Location',p.location)}${line('Start date',p.startDate)}${line('Planned finish (exact date)',p.baselineFinish)}${line('Revised finish (exact date)',p.forecastFinish)}${line('Duration (months)',p.durationMonths)}</div></section>
+ `<section class="card panel v4-section"><h2 class="paneltitle">Project Information</h2><div class="v4-facts">${line('Project end',portalProjectEndText(p))}${line('Internal owner',owner)}${line('Client / contracting organization',p.client)}${line('Contract value',moneyLabel(p.contractValue,p.contractCurrency))}${line('Physical progress',p.progress===null?'Not recorded':p.progress+'%')}${line('Location',p.location)}${line('Start date',p.startDate)}${line('2027 budgeted months',portalBudgetCoverage(p)?.months??null)}${line('Planned finish (exact date)',p.baselineFinish)}${line('Revised finish (exact date)',p.forecastFinish)}${line('Recorded duration (months)',p.durationMonths)}${line('Financial progress (source amount)',p.sourceTotalProgress===null?null:moneyLabel(p.sourceTotalProgress,p.contractCurrency))}${line('Remaining contract (source amount)',p.sourceRemaining===null?null:moneyLabel(p.sourceRemaining,p.contractCurrency))}${line('Project status',p.status)}</div></section>
  ${d?projectTeamV4(d):dataStatus('Project details',detailsError,'retry-details')}
+ ${portalRegisteredPayments(p)}
  ${dashboardV5?v5FinancialPanel(p):dataStatus('Project financial analysis',dashboardError,'retry-dashboard')}
  ${d?projectRecordsV4(d):''}`;
 }
@@ -543,12 +566,12 @@ function projectRecordsV4(d){
 }
 
 function renderSuggestedV4(proposed){
- const entries=Object.entries(proposed||{});return `<h3>Review extracted values</h3>${entries.length?`<div class="v4-suggest-grid">${entries.map(([k,v])=>`<div><small>${h(k)}</small><strong>${h(String(v))}</strong></div>`).join('')}</div><button class="btn primary" type="button" data-v4="confirm-import">Confirm and update fields</button>`:'<p>No matching fields were detected. The file remains available to download.</p>'}`;
+ const entries=Object.entries(proposed||{});return `<h3>Review extracted values</h3>${entries.length?`<div class="v4-suggest-grid">${entries.map(([k,v])=>`<div><small>${h(k)}</small><strong>${h(String(v))}</strong></div>`).join('')}</div><button class="btn primary" type="button" data-v4="confirm-import">Fill missing fields and confirm</button>`:'<p>No matching fields were detected. The file remains available to download.</p>'}`;
 }
 
 function editProjectV4(){
  const p=fromProject(chosen);if(!p)return projectListV4();
- const data=[['client','Client','text',p.client],['scope','Project scope','text',p.scope],['contractValue','Contract value','number',p.contractValue],['progress','Physical progress (%)','number',p.progress],['location','Location','text',p.location],['startDate','Planned start','date',p.startDate],['baselineFinish','Planned finish (exact date)','date',p.baselineFinish],['forecastFinish','Revised project end (exact date)','date',p.forecastFinish],['durationMonths','Duration months','number',p.durationMonths]];
+ const data=[['client','Client','text',p.client],['scope','Project scope','text',p.scope],['contractValue','Contract value','number',p.contractValue],['progress','Physical progress (%)','number',p.progress],['location','Location','text',p.location],['startDate','Planned start','date',p.startDate],['baselineFinish','Planned finish (exact date)','date',p.baselineFinish],['forecastFinish','Revised project end (exact date)','date',p.forecastFinish],['durationMonths','Recorded duration (months)','number',p.durationMonths]];
  return heading('Projects','Edit Project',h(p.id),'<button class="btn" data-v4="cancel-edit">Cancel</button>')+`<section class="card panel"><p class="v5-context"><strong>Current project end:</strong> ${h(portalProjectEndText(p))}. The revised finish date, if entered by a project lead, takes priority; no budget amounts are created automatically.</p><form id="edit-v4"><div class="v4-formgrid">${data.filter(([key])=>lead()||!['baselineFinish','forecastFinish'].includes(key)).map(([key,label,type,value])=>`<label>${label}<input name="${key}" type="${type}" ${type==='number'?'step="0.01"':''} value="${h(String(value??''))}"></label>`).join('')}${lead()?`<label>Internal project owner<select name="internalOwnerId"><option value="">Not assigned</option>${(detailsV4?.people||[]).map(u=>`<option value="${h(u.id)}" ${u.id===p.internalOwnerId?'selected':''}>${h(u.display_name)}</option>`).join('')}</select></label>`:''}<label>Status<select name="status">${['Active','On Hold','Completed','Cancelled'].map(s=>`<option ${s===p.status?'selected':''}>${s}</option>`).join('')}</select></label></div><div class="form-actions"><button class="btn primary">Save changes</button></div></form></section>`;
 }
 
@@ -594,6 +617,7 @@ async function loadDetailsV4(){
   const data=await api('/api/project-data?code='+encodeURIComponent(project));
   if(request!==detailsRequest||chosen!==project)return false;
   detailsV4=data;
+  if(!pendingV4){const unconfirmed=(data.documents||[]).find(d=>!d.confirmed_at&&d.proposed&&Object.keys(d.proposed).length);if(unconfirmed)pendingV4={document:unconfirmed,proposed:unconfirmed.proposed};}
  }catch{
   if(request!==detailsRequest||chosen!==project)return false;
   detailsError=true;
@@ -617,8 +641,39 @@ async function extractV4(file){
  return data.suggested||{};
 }
 
-function approvedChangesV4(s){
- const result={};for(const k of ['client','scope','contractValue','location','progress','startDate','baselineFinish','durationMonths'])if(s[k]!==undefined&&s[k]!==null)result[k]=s[k];return result;
+
+function autoFillMissingFields(form,proposed){
+ const added=[],conflicts=[];
+ if(!form||!proposed||typeof proposed!=='object')return {added,conflicts};
+ const currentCode=String(form.elements.namedItem('projectCode')?.value||'').trim();
+ const proposedCode=String(proposed.projectCode??'').trim();
+ if(currentCode&&proposedCode&&currentCode!==proposedCode){
+  return {added,conflicts:['Project code in the document differs from the code in the form. Nothing was changed.']};
+ }
+ const allowed=['projectCode','client','scope','contractValue','currency','location','startDate','baselineFinish','durationMonths','progress'];
+ for(const key of allowed){
+  const field=form.elements.namedItem(key),value=proposed[key];
+  if(!field||value===null||value===undefined||String(value).trim()==='')continue;
+  const next=String(value),current=String(field.value||'').trim();
+  if(key==='currency'&&!['EGP','USD','EUR','Other'].includes(next)){conflicts.push('Unsupported contract currency; existing entry preserved.');continue;}
+  if(['contractValue','progress','durationMonths'].includes(key)&&(!Number.isFinite(Number(next))||Number(next)<0||(key==='progress'&&Number(next)>100)||(key==='durationMonths'&&(!Number.isInteger(Number(next))||Number(next)>600)))){conflicts.push(key+' is invalid; it was not applied.');continue;}
+  if(['startDate','baselineFinish'].includes(key)&&!/^\d{4}-\d{2}-\d{2}$/.test(next)){conflicts.push(key+' has no exact date; it was not applied.');continue;}
+  const empty=!current||(key==='currency'&&field.value==='EGP'&&field.selectedIndex===0&&field.options[0]?.defaultSelected);
+  if(empty){field.value=next;added.push(key);}
+  else if(current!==next)conflicts.push(key+' differs from the existing entry; the existing entry was preserved.');
+ }
+ return {added,conflicts};
+}
+
+function approvedChangesV4(s,p){
+ if(!p||!s||typeof s!=='object')return {};
+ if(s.projectCode!==undefined&&String(s.projectCode)!==String(p.id))throw new Error('Uploaded document project code does not match the selected project.');
+ const result={};
+ for(const k of ['client','scope','contractValue','location','progress','startDate','baselineFinish','durationMonths']){
+  if(k==='baselineFinish'&&!lead())continue;
+  if(s[k]!==undefined&&s[k]!==null&&s[k]!==''&&(p[k]===null||p[k]===undefined||p[k]===''))result[k]=s[k];
+ }
+ return result;
 }
 ROOT.addEventListener('click',async event=>{
  const button=event.target.closest('button[data-v4]');if(!button)return;
@@ -660,43 +715,45 @@ ROOT.addEventListener('click',async event=>{
  }
  if(action==='apply-precreate'){
   const form=document.getElementById('create-v4');
-  for(const [key,value] of Object.entries(suggestionsV4)){
-   const field=form?.elements.namedItem(key);if(field&&value!==null&&value!==undefined)field.value=String(value);
-  }
+  const filled=autoFillMissingFields(form,suggestionsV4);
+  if(filled.conflicts.length)showNotice('Uploaded fields differ from current entries; existing values were preserved.');
   const preview=document.getElementById('numbers-proposal-v4');
   if(preview)preview.innerHTML='<p>Review the populated fields, then create the project.</p>';
   return;
  }
  if(action==='confirm-import'&&pendingV4){
-  const changes=approvedChangesV4(pendingV4.proposed||{});
+  const p=fromProject(chosen);
+  let changes;try{changes=approvedChangesV4(pendingV4.proposed||{},p)}catch(err){setError(err);return;}
   try{
    if(Object.keys(changes).length){
-    const p=fromProject(chosen);
     const result=await api('/api/projects/'+encodeURIComponent(chosen),{
       method:'PUT',body:{lastEdited:p.lastEdited,changes}});
     const i=projects.findIndex(x=>x.id===chosen);if(i>=0)projects[i]=result.project;
    }
    await api('/api/documents',{method:'PUT',body:{projectCode:chosen,documentId:pendingV4.document.id}});
-   pendingV4=null;await loadDetailsV4();showNotice('Project numbers confirmed.');
+   pendingV4=null;await loadDetailsV4();showNotice('Document confirmed; missing fields filled from the upload and existing entries preserved.');
   }catch(err){setError(err)}
  }
 });
 ROOT.addEventListener('change',async event=>{
- if(event.target?.id!=='numbers-precreate-v4')return;
- const file=event.target.files?.[0],box=document.getElementById('numbers-proposal-v4');
+ const source=event.target?.id;
+ if(!['numbers-precreate-v4','contract-precreate-v4'].includes(source))return;
+ const file=event.target.files?.[0],box=document.getElementById(source==='numbers-precreate-v4'?'numbers-proposal-v4':'contract-proposal-v4');
  if(!file||!box)return;
- box.hidden=false;box.textContent='Reading project numbers...';
+ box.hidden=false;box.textContent='Reading uploaded document...';
  try{
   const suggestions=await extractV4(file);
   if(!box.isConnected||event.target.files?.[0]!==file)return;
-  suggestionsV4=suggestions;
-  const arr=Object.entries(suggestionsV4);
-  box.innerHTML='<h3>Proposed fields</h3>'+
-    (arr.length?'<div class="v4-suggest-grid">'+arr.map(([k,v])=>
-      '<div><small>'+h(k)+'</small><strong>'+h(String(v))+'</strong></div>').join('')+
-      '</div><button type="button" class="btn primary" data-v4="apply-precreate">Use these values</button>':
-      '<p>No matching fields identified. Complete the project form manually.</p>');
- }catch(err){box.textContent=err.message;}
+  const form=document.getElementById('create-v4'),filled=autoFillMissingFields(form,suggestions);
+  suggestionsV4={...suggestionsV4,...suggestions};
+  const arr=Object.entries(suggestions);
+  box.innerHTML='<h3>Detected project fields</h3>'+
+   (arr.length?'<div class="v4-suggest-grid">'+arr.map(([k,v])=>
+   '<div><small>'+h(k)+'</small><strong>'+h(String(v))+'</strong></div>').join('')+
+   '</div><p>'+filled.added.length+' empty field(s) populated automatically. Review before creating the project.</p>':
+   '<p>No project fields detected; no values were changed.</p>')+
+   (filled.conflicts.length?'<p role="alert">'+filled.conflicts.map(x=>h(x)).join(' ')+'</p>':'');
+ }catch(err){box.textContent='Automatic extraction unavailable: '+String(err.message||err)+'. You can enter the fields manually.';}
 });
 ROOT.addEventListener('submit',async event=>{
  const form=event.target,id=form.id;
@@ -725,7 +782,7 @@ ROOT.addEventListener('submit',async event=>{
   if(creatingRequest)return;
   const f=new FormData(form),str=k=>String(f.get(k)||'').trim();
   const body={projectCode:str('projectCode'),client:str('client'),scope:str('scope'),currency:str('currency'),
-    contractValue:str('contractValue')===''?0:Number(str('contractValue')),location:str('location'),
+    contractValue:str('contractValue')===''?null:Number(str('contractValue')),progress:str('progress')===''?null:Number(str('progress')),location:str('location'),
     startDate:str('startDate')||null,baselineFinish:str('baselineFinish')||null,
     forecastFinish:str('forecastFinish')||null,durationMonths:str('durationMonths')===''?null:Number(str('durationMonths'))};
   const contract=form.elements.namedItem('contract')?.files?.[0],numbers=form.elements.namedItem('numbers')?.files?.[0];
@@ -782,8 +839,8 @@ ROOT.addEventListener('submit',async event=>{
   const type=id==='contract-v4'?'contract':'project_numbers';
   const file=form.elements.namedItem('file')?.files?.[0];if(!file)return;
   try{const uploaded=await uploadV4(chosen,type,file);
-   pendingV4=type==='project_numbers'?uploaded:null;await loadDetailsV4();
-   showNotice(type==='contract'?'Contract uploaded.':'Project numbers uploaded. Review and confirm extracted values.');
+   pendingV4=Object.keys(uploaded.proposed||{}).length?uploaded:null;await loadDetailsV4();
+   showNotice('Document uploaded.'+(pendingV4?' Review detected fields to complete missing project details.':' No field changes were applied.'));
   }catch(err){setError(err)}
  }
 });

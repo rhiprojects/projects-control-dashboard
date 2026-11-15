@@ -11,15 +11,16 @@ export function onRequestPost({request,env}){return handler(async()=>{
  const projectCode=code(String(body.projectCode||''));
  const client=String(body.client||'').trim(),scope=String(body.scope||'').trim();
  const currency=String(body.currency||'EGP');
- const amount=Number(body.contractValue??0);
+ const amount=body.contractValue===null||body.contractValue===undefined||body.contractValue===''?NaN:Number(body.contractValue);
+ const progress=body.progress===null||body.progress===undefined||body.progress===''?null:Number(body.progress);
  if(!client||client.length>400||!scope||scope.length>2000||!['EGP','USD','EUR','Other'].includes(currency)||
- !Number.isFinite(amount)||amount<0||amount>1e15)throw new HttpError(400,'Please check the project information');
+ !Number.isFinite(amount)||amount<0||amount>1e15||(progress!==null&&(!Number.isFinite(progress)||progress<0||progress>100)))throw new HttpError(400,'Please check the project information');
  if(!validDate(body.startDate)||!validDate(body.baselineFinish)||!validDate(body.forecastFinish))
   throw new HttpError(400,'Invalid project date');
  const duration=body.durationMonths==null||body.durationMonths===''?null:Number(body.durationMonths);
- if(duration!==null&&(!Number.isInteger(duration)||duration<1||duration>1200))throw new HttpError(400,'Invalid duration');
+ if(duration!==null&&(!Number.isInteger(duration)||duration<1||duration>600))throw new HttpError(400,'Invalid duration');
  const payload={project_code:projectCode,client,scope,currency,contract_amount:amount,status:'Active',
-  created_by:user.profileId,portal_visible:true,source_file:'Portal project creation',
+  created_by:user.profileId,portal_visible:true,physical_progress_pct:progress,source_file:'Portal project creation',
   planned_start_date:body.startDate||null,planned_finish_date:body.baselineFinish||null,
   forecast_finish_date:body.forecastFinish||null,duration_months:duration,
   location:String(body.location||'').slice(0,300)||null,

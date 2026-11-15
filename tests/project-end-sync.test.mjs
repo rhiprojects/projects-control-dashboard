@@ -30,7 +30,7 @@ function fixture(){
 test('Project 776 ends May 2027 from approved budget without inventing a day',()=>{
  const run=fixture();
  assert.equal(run('portalProjectEnd(projects[0]).month'),'2027-05');
- assert.match(run('portalProjectEndText(projects[0])'),/May 2027.*day not recorded/);
+ assert.equal(run('portalProjectEndText(projects[0])'),'May 2027');
  assert.equal(run('portalScheduledMonths(projects[0],dashboardV5.monthlyBudgets).length'),5);
 });
 
