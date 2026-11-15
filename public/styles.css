@@ -963,6 +963,13 @@ html,body,.app,.main,.content{background:#FFFFFF}
  .v4-formgrid,.form-grid,.portal-toolbar,.project-form-group{min-width:0}
  .table-wrap.portal-table{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin;overscroll-behavior-inline:contain}
  .table-wrap.portal-table table{min-width:620px}
+ .table-wrap.portal-table::before{
+  content:"Swipe sideways to see more columns →";display:block;
+  position:sticky;left:0;z-index:4;width:max-content;
+  max-width:calc(100% - 6px);padding:6px 9px;
+  border-bottom:1px solid #D9E6F2;border-radius:0 0 5px 0;
+  background:#EDF5FC;color:#315B7A;font-size:11px;font-weight:700
+ }
  .table-wrap.portal-table th:first-child,.table-wrap.portal-table td:first-child{
   position:sticky;left:0;z-index:2;background:#F8FBFF;
   box-shadow:1px 0 0 #D9E3EE
