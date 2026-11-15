@@ -463,6 +463,10 @@ async function v7RenderCharts(){
   if(!el.isConnected)return;
   try{
    const data=JSON.parse(el.dataset.chart);
+   const mobileBudget=Boolean(el.closest('.dashboard-budget-comparison'))&&
+    window.matchMedia('(max-width: 640px)').matches&&data.kind==='bar';
+   const height=mobileBudget?Math.max(300,160+data.labels.length*42):0;
+   if(height)el.style.height=height+'px';
    const chart=echarts.init(el,null,{renderer:'svg'});
    if(data.kind==='donut'){
     chart.setOption({animation:false,color:['#163F70','#2879BF','#62AAF0','#0F9FBA','#76B8D9','#8A9DBB','#425B81','#B9CFDF'],
@@ -476,7 +480,7 @@ async function v7RenderCharts(){
     }
     return;
    }
-   const horizontal=data.kind==='horizontal';
+   const horizontal=data.kind==='horizontal'||mobileBudget;
    const totalProjects=Math.max(1,Number(data.maxProjects)||0);
    const colors=['#1F5E96','#62A2D5','#A0BED6'];
    const option={
@@ -484,7 +488,7 @@ async function v7RenderCharts(){
     color:colors,
     textStyle:{color:'#243548'},
     tooltip:{
-     trigger:'axis',backgroundColor:'#FFFFFF',borderColor:'#BECFDF',
+     trigger:'axis',confine:true,backgroundColor:'#FFFFFF',borderColor:'#BECFDF',
      textStyle:{color:'#243548'},
      axisPointer:{lineStyle:{color:'#BECFDF'},shadowStyle:{color:'#E5EEF6'}},
      valueFormatter:v=>v==null?'Not recorded':Number(v).toLocaleString('en-US',{maximumFractionDigits:2})+(data.currency?' '+data.currency:'')
@@ -492,9 +496,11 @@ async function v7RenderCharts(){
     legend:{top:0,type:'scroll',textStyle:{color:'#243548'}},
     grid:horizontal?{left:24,right:32,top:48,bottom:42,containLabel:true}:{left:16,right:22,top:48,bottom:48,containLabel:true},
     xAxis:horizontal?{
-     type:'value',min:0,max:totalProjects,interval:1,minInterval:1,
-     name:'Projects',nameLocation:'middle',nameGap:28,
-     axisLabel:{color:'#243548',formatter:value=>Number.isInteger(value)?String(value):''},
+     type:'value',min:0,
+     ...(mobileBudget?{}:{max:totalProjects,interval:1,minInterval:1,name:'Projects',nameLocation:'middle',nameGap:28}),
+     axisLabel:{color:'#243548',formatter:mobileBudget?
+      value=>Number(value).toLocaleString('en-US',{maximumFractionDigits:1}):
+      value=>Number.isInteger(value)?String(value):''},
      splitLine:{lineStyle:{color:'#E5EEF6'}}
     }:{
      type:'category',data:data.labels,axisLabel:{hideOverlap:!data.financial,color:'#243548',rotate:data.financial?35:0,...(data.financial?{width:90,overflow:'break'}:{})},
@@ -502,7 +508,7 @@ async function v7RenderCharts(){
     },
     yAxis:horizontal?{
      type:'category',data:data.labels,inverse:true,
-     axisLabel:{color:'#243548',fontSize:12,margin:16},
+     axisLabel:{color:'#243548',fontSize:mobileBudget?11:12,margin:mobileBudget?8:16},
      axisTick:{show:false},axisLine:{lineStyle:{color:'#BECFDF'}}
     }:{
      type:'value',name:data.financial?data.currency:'',axisLabel:{formatter:v=>Number(v).toLocaleString('en-US',{maximumFractionDigits:2}),color:'#243548'},
@@ -510,7 +516,7 @@ async function v7RenderCharts(){
     },
     series:data.series.map((x,i)=>({
      name:x.name,type:data.kind==='line'?'line':'bar',data:x.values,smooth:false,
-     barMaxWidth:horizontal?32:36,itemStyle:{color:colors[i%colors.length],
+     barMaxWidth:mobileBudget?20:horizontal?32:36,itemStyle:{color:colors[i%colors.length],
       ...(data.financial&&i===1?{decal:{symbol:'rect',dashArrayX:[1,0],dashArrayY:[2,4],color:'#243548'}}:{})}
     }))
    };
@@ -612,7 +618,7 @@ function dashboardTimelineV12(entries){
   const label=x.p.id+' · '+(x.p.displayName||x.p.client);
   const months=names.map((name,i)=>{
    const period='2027-'+String(i+1).padStart(2,'0');
-   return '<span class="dashboard-timeline-cell'+(x.budgetMonths.has(period)?' is-funded':'')+'" title="'+h(name+' 2027: '+(x.budgetMonths.has(period)?'approved monthly budget recorded':'no nonzero approved budget recorded'))+'"></span>';
+   return '<span class="dashboard-timeline-cell'+(x.budgetMonths.has(period)?' is-funded':'')+'" data-month="'+h(name)+'" title="'+h(name+' 2027: '+(x.budgetMonths.has(period)?'approved monthly budget recorded':'no nonzero approved budget recorded'))+'"></span>';
   }).join('');
   return '<div class="dashboard-timeline-line"><span class="dashboard-timeline-project" title="'+h(label)+'">'+h(label)+'</span>'+
    '<div class="dashboard-timeline-cells" role="img" aria-label="'+h(label+': '+([...x.budgetMonths].sort().join(', ')||'no recorded budget months'))+'">'+months+'</div>'+
