@@ -39,6 +39,19 @@ test('idle orb is a real dot matrix: cube coordinates, sphere coordinates, and t
  assert.equal((markup.match(/class="ai-matrix-ring-v9 /g)||[]).length,3);
  assert.match(markup,/--cx:/);
  assert.match(markup,/--sx:/);
+ // Real coordinates are essential: if 3D transforms fail, dots must not
+ // collapse into one tiny spot as they did in the reported screenshot.
+ const xyz=[...markup.matchAll(/<i class="ai-matrix-dot-v9" style="left:([-\\d.]+)px;top:([-\\d.]+)px;/g)];
+ assert.equal(xyz.length,96);
+ const spread=axis=>{
+  const coordinates=xyz.map(match=>Number(match[axis]));
+  return Math.max(...coordinates)-Math.min(...coordinates);
+ };
+ assert.ok(spread(1)>=50,'Cube dots must span at least 50px horizontally');
+ assert.ok(spread(2)>=50,'Cube dots must span at least 50px vertically');
+ const rings=[...markup.matchAll(/<i class="ai-matrix-ring-dot-v9" style="left:([-\\d.]+)px;top:([-\\d.]+)px"/g)];
+ assert.equal(rings.length,84);
+
  assert.match(markup,/--bx:/);
  assert.match(markup,/role="status"/);
  assert.match(markup,/Assistant ready/);
@@ -104,6 +117,7 @@ test('all four animation states and reduced-motion preference exist',()=>{
   assert.ok(css.includes('[data-state="'+name+'"]'),'Missing visual state '+name);
  for(const animation of ['ai-v9-bubble','ai-v9-ring-x','ai-v9-ring-y','ai-v9-ring-angled','ai-v9-success-drift','ai-v9-success-aura'])
   assert.ok(css.includes(animation),'Missing animation '+animation);
+ assert.match(css,/calc\(var\(--sx\) - var\(--cx\)\)/);
  assert.match(css,/prefers-reduced-motion:reduce/);
  assert.match(css,/animation:none!important/);
 });
