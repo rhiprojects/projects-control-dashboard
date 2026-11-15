@@ -347,7 +347,7 @@ html,body,.app,.main,.content{background:#FFFFFF}
 }
 .ai-matrix-v9[data-state="thinking"] .ai-matrix-dot-v9{
  animation:ai-v9-bubble 1.85s cubic-bezier(.45,0,.55,1) infinite;
- animation-delay:calc(-1 * var(--phase));
+ animation-delay:calc(0s - var(--phase));
 }
 .ai-matrix-v9[data-state="working"] .ai-matrix-scene-v9{
  animation:ai-v9-working-orbit 8s linear infinite;
