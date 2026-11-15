@@ -38,7 +38,7 @@ test('team chart and roster show members only, not the manager or administrator'
  assert.deepEqual(chart[2],['Site Engineer']);
  assert.deepEqual(chart[3][0].values,[2]);
  assert.equal(chart[5].maxProjects,7);
- assert.match(html,/Assigned Projects/);
+ assert.match(html,/Direct project assignments/);
  assert.match(html,/Project codes/);
  assert.match(html,/736, 776/);
  assert.doesNotMatch(html,/Head of Projects<\/strong>|System Admin|Inactive Member|999|Portfolio oversight/);
