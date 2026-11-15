@@ -195,6 +195,17 @@ table tbody tr:hover{background:var(--portal-canvas)}
 .v5-track i,.progress>span,.wide-progress span{background:var(--portal-accent)}
 .v5-trend.up,.v5-trend.down,.v5-trend.unavailable,.pill,.pill.green,.pill.amber,.pill.red,.pill.blue,.pill.neutral,.tag{color:var(--portal-ink);background:var(--portal-divider)}
 .v6-count,.projectid,.eyebrow,.plink,.online{color:var(--portal-ink)}
+/* Small labels and interactive text keep the dark palette color for readable contrast. */
+.sidebar .nav button .num{background:var(--portal-divider);color:var(--portal-ink)}
+.sidebar .signout:hover{background:var(--portal-divider);color:var(--portal-ink)}
+.brandmark{background:var(--portal-divider);color:var(--portal-ink)}
+.sidebar .sidecaption,.sidebar .sidebottom small{color:var(--portal-panel)}
+.online{background:var(--portal-divider)}
+.projectstats,.projectfoot,.subline,.breadcrumbs,.topdate,.attention p,.notice-line,.v5-bar-row>div:first-child,
+.v5-analysis-grid h3,.v7-chart-note,.v4-fact span,.v4-formgrid label,.v4-suggest-grid small,
+.info-item label,.v5-portfolio-item small,.v5-team-row small,.progress+.progrow small{
+ color:var(--portal-ink)
+}
 .v7-chart-horizontal{min-height:265px}
 .v8-team-scope{display:block;color:var(--portal-ink);font-size:12px;font-weight:400;margin-top:4px}
 @media(max-width:720px){.v7-chart-horizontal{min-height:285px}}
