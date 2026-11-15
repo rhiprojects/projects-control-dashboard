@@ -674,13 +674,12 @@ function renderSuggestedV4(proposed){
 
 function editProjectV4(){
  const p=fromProject(chosen);if(!p)return projectListV4();
- const owner=lead()?`<label>Internal project owner<select name="internalOwnerId"><option value="">Not assigned</option>${(detailsV4?.people||[]).map(u=>`<option value="${h(u.id)}" ${u.id===p.internalOwnerId?'selected':''}>${h(u.display_name)}</option>`).join('')}</select></label>`:'';
  const status=`<label>Status<select name="status">${['Active','On Hold','Completed','Cancelled'].map(s=>`<option ${s===p.status?'selected':''}>${s}</option>`).join('')}</select></label>`;
  const finish=lead()?[['baselineFinish','Planned finish (exact date)','date',p.baselineFinish],['forecastFinish','Revised project end (exact date)','date',p.forecastFinish]]:[];
  return heading('Projects','Edit Project',p.id+' · '+(p.displayName||p.client||p.name),'<button class="btn" data-v4="cancel-edit">Back to project</button>')+
- `<section class="card panel"><p class="v5-context"><strong>Current project end:</strong> ${h(portalProjectEndText(p))}. The revised finish date, if entered by a project lead, takes priority; no budget amounts are created automatically.</p>
+ `<section class="card panel">
  <form id="edit-v4" class="project-form">
- ${projectFormGroup('Project information',projectFields([['client','Client','text',p.client],['scope','Project scope','text',p.scope],['location','Location','text',p.location]])+owner+status)}
+ ${projectFormGroup('Project information',projectFields([['client','Client','text',p.client],['scope','Project scope','text',p.scope],['location','Location','text',p.location]])+status)}
  ${projectFormGroup('Contract and progress',projectFields([['contractValue','Contract value'+(p.contractCurrency?' · '+p.contractCurrency:''),'number',p.contractValue],['progress','Physical progress (%)','number',p.progress]]))}
  ${projectFormGroup('Schedule',projectFields([['startDate','Planned start','date',p.startDate],...finish,['durationMonths','Recorded duration (months)','number',p.durationMonths]]))}
  <div class="form-actions edit-save-actions"><button class="btn" type="button" data-v4="cancel-edit">Cancel</button><button class="btn primary">Save changes</button><div class="edit-save-feedback"><p class="portal-form-error edit-save-error" data-form-error role="alert" tabindex="-1" hidden></p><p class="portal-form-status" data-form-status role="status"></p></div></div></form></section>`;
@@ -947,7 +946,6 @@ ROOT.addEventListener('submit',async event=>{
   if(lead()){
    proposed.baselineFinish=str('baselineFinish')||null;
    proposed.forecastFinish=str('forecastFinish')||null;
-   proposed.internalOwnerId=str('internalOwnerId')||null;
   }
   const changes=Object.fromEntries(Object.entries(proposed).filter(([key,next])=>{
    const recorded=current[key];
