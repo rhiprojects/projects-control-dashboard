@@ -13,3 +13,7 @@
   Cache-Control: no-store, max-age=0
 /styles.css
   Cache-Control: no-store, max-age=0
+/password-recovery.js
+  Cache-Control: no-store, max-age=0
+/recovery-utils.js
+  Cache-Control: no-store, max-age=0
