@@ -36,7 +36,7 @@ function projectLine(p,owner,assignees,monthly){
  const recordedEnd=p.forecast_finish_date||p.planned_finish_date;
  const lastFunded=rows.filter(x=>num(x.baseline_amount)!==null&&Number(x.baseline_amount)!==0).map(x=>String(x.period_start).slice(0,7)).sort().at(-1)||null;
  const projectEndMonth=recordedEnd?String(recordedEnd).slice(0,7):lastFunded;
- const projectEnd=recordedEnd|| (lastFunded?new Intl.DateTimeFormat('en-US',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(lastFunded+'-01T00:00:00Z'))+' (exact day not recorded)':'Not recorded');
+ const projectEnd=recordedEnd|| (lastFunded?new Intl.DateTimeFormat('en-US',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(lastFunded+'-01T00:00:00Z')) :'Not recorded');
  const total=rows.length&&rows.every(x=>num(x.baseline_amount)!==null)?rows.reduce((n,x)=>n+Number(x.baseline_amount),0):null;
  const working=rows.length&&rows.every(x=>num(x.current_amount)!==null)?rows.reduce((n,x)=>n+Number(x.current_amount),0):null;
  return {

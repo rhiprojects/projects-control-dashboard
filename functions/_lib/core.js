@@ -31,11 +31,15 @@ export function toProject(r){return {
  status:r.status,progress:r.physical_progress_pct===null?null:Number(r.physical_progress_pct),notes:r.source_notes??'',
  sourceTotalProgress:r.source_total_progress===null?null:Number(r.source_total_progress),
  sourceRemaining:r.source_remaining_contract===null?null:Number(r.source_remaining_contract),
+ registeredReceipts:{'2024':r.received_2024==null?null:Number(r.received_2024),'2025':r.received_2025==null?null:Number(r.received_2025),
+ '2026-01':r.jan_2026==null?null:Number(r.jan_2026),'2026-02':r.feb_2026==null?null:Number(r.feb_2026),
+ '2026-03':r.mar_2026==null?null:Number(r.mar_2026),'2026-04':r.apr_2026==null?null:Number(r.apr_2026),
+ '2026-05':r.may_2026==null?null:Number(r.may_2026),'2026-06':r.jun_2026==null?null:Number(r.jun_2026)},
  lastEdited:r.last_updated,startDate:r.planned_start_date||null,baselineFinish:r.planned_finish_date||null,
  forecastFinish:r.forecast_finish_date||null,durationMonths:r.duration_months??null,
  internalOwnerId:r.internal_owner_id||null,createdBy:r.created_by||null,location:r.location||null
 }};
-export const projectFields='project_code,client,scope,currency,contract_amount,status,physical_progress_pct,source_notes,source_total_progress,source_remaining_contract,last_updated,planned_start_date,planned_finish_date,forecast_finish_date,duration_months,internal_owner_id,created_by,location';
+export const projectFields='project_code,client,scope,currency,contract_amount,status,physical_progress_pct,source_notes,source_total_progress,source_remaining_contract,last_updated,planned_start_date,planned_finish_date,forecast_finish_date,duration_months,internal_owner_id,created_by,location,received_2024,received_2025,jan_2026,feb_2026,mar_2026,apr_2026,may_2026,jun_2026';
 export async function getProject(env,session,pcode){
  const rows=await rest(env,`ongoing_projects?project_code=eq.${encodeURIComponent(code(pcode))}&select=${projectFields}&limit=1`,{token:session.token});
  if(!rows?.length)throw new HttpError(404,'Project not available to your account');return rows[0];
@@ -53,7 +57,7 @@ export function checkedChanges(changes){
  for(const [k,v] of entries){
   if(k==='contractValue'||k==='progress')out[mapping[k]]=number(v,k,k==='progress'?100:1e15);
   else if(k==='status'){if(!['Active','On Hold','Completed','Cancelled'].includes(v))throw new HttpError(400,'Invalid status');out.status=v;}
-  else if(k==='durationMonths'){if(v!==null&&(!Number.isInteger(v)||v<1||v>1200))throw new HttpError(400,'Invalid duration');out.duration_months=v;}
+  else if(k==='durationMonths'){if(v!==null&&(!Number.isInteger(v)||v<1||v>600))throw new HttpError(400,'Invalid duration');out.duration_months=v;}
   else if(k==='internalOwnerId'){if(v!==null&&(typeof v!=='string'||!/^[-a-f0-9]{36}$/i.test(v)))throw new HttpError(400,'Invalid owner');out.internal_owner_id=v;}
   else if(['startDate','baselineFinish','forecastFinish'].includes(k)){
    if(v!==null&&(typeof v!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(v)||!Number.isFinite(Date.parse(v))))throw new HttpError(400,'Invalid date');

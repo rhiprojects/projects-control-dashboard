@@ -13,6 +13,7 @@ export function onRequestGet({request,env}){return handler(async()=>{
  rest(env,`project_assignments?project_code=eq.${esc}&select=project_code,user_id&limit=200`,{token:t})
  ]);
  return json({monthly:monthly||[],lines:lines||[],actuals:actuals||[],
-  documents:(documents||[]).map(({extraction_preview,...d})=>({...d,hasExtractedData:!!extraction_preview})),
+  documents:(documents||[]).map(({extraction_preview,...d})=>({...d,hasExtractedData:!!extraction_preview,
+    proposed:!d.confirmed_at&&extraction_preview?.proposed&&typeof extraction_preview.proposed==='object'?extraction_preview.proposed:null})),
   history:history||[],people:people||[],assignments:assignments||[]});
 })}
