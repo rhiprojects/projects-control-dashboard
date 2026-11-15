@@ -130,10 +130,11 @@ function v5Arrow(p){
 }
 /* v7: Presentation-only ECharts. Existing records and tables remain authoritative. */
 let v7ChartsPromise=null;
-function v7Chart(title,kind,labels,series,currency=''){
+function v7Chart(title,kind,labels,series,currency='',options={}){
  if(!labels.length||!series.length)return '';
- const payload=JSON.stringify({kind,labels,series,currency});
- return '<div class="v7-chart-panel"><h3>'+h(title)+'</h3><div class="v7-chart" role="img" aria-label="'+h(title)+'" data-chart="'+h(payload)+'"></div><p class="v7-chart-note">Values reflect available records only. Refer to the table for exact figures.</p></div>';
+ const isHorizontal=kind==='horizontal';
+ const payload=JSON.stringify({kind,labels,series,currency,...options});
+ return '<div class="v7-chart-panel'+(isHorizontal?' v7-team-chart-panel':'')+'"><h3>'+h(title)+'</h3><div class="v7-chart'+(isHorizontal?' v7-chart-horizontal':'')+'"'+(isHorizontal?' style="--team-bars:'+labels.length+'"':'')+' role="img" aria-label="'+h(title)+'" data-chart="'+h(payload)+'"></div><p class="v7-chart-note">'+(isHorizontal?'Head of Projects: portfolio oversight. Team members: directly assigned projects. Counts are not hours or utilization.':'Values reflect available records only. Refer to the table for exact figures.')+'</p></div>';
 }
 function v7LoadCharts(){
  if(window.echarts)return Promise.resolve(window.echarts);
@@ -157,14 +158,37 @@ async function v7RenderCharts(){
   try{
    const data=JSON.parse(el.dataset.chart);
    const chart=echarts.init(el,null,{renderer:'svg'});
+   const horizontal=data.kind==='horizontal';
+   const totalProjects=Math.max(1,Number(data.maxProjects)||0);
+   const colors=['#3A4061','#7B88B6','#B3C0DD'];
    const option={
     animation:false,
+    color:colors,
+    textStyle:{color:'#3A4061'},
     tooltip:{trigger:'axis',valueFormatter:v=>Number(v).toLocaleString('en-US',{maximumFractionDigits:2})+(data.currency?' '+data.currency:'')},
-    legend:{top:0,type:'scroll'},
-    grid:{left:16,right:22,top:48,bottom:48,containLabel:true},
-    xAxis:{type:'category',data:data.labels,axisLabel:{hideOverlap:true}},
-    yAxis:{type:'value',axisLabel:{formatter:v=>Number(v).toLocaleString('en-US')}},
-    series:data.series.map((x,i)=>({name:x.name,type:data.kind==='line'?'line':'bar',data:x.values,smooth:false,barMaxWidth:36,itemStyle:{color:['#0f766e','#3268b5','#a76e0b','#64748b'][i%4]}}))
+    legend:{top:0,type:'scroll',textStyle:{color:'#3A4061'}},
+    grid:horizontal?{left:24,right:32,top:48,bottom:42,containLabel:true}:{left:16,right:22,top:48,bottom:48,containLabel:true},
+    xAxis:horizontal?{
+     type:'value',min:0,max:totalProjects,interval:1,minInterval:1,
+     name:'Projects',nameLocation:'middle',nameGap:28,
+     axisLabel:{color:'#3A4061',formatter:value=>Number.isInteger(value)?String(value):''},
+     splitLine:{lineStyle:{color:'#DBE2F2'}}
+    }:{
+     type:'category',data:data.labels,axisLabel:{hideOverlap:true,color:'#3A4061'},
+     axisLine:{lineStyle:{color:'#B3C0DD'}}
+    },
+    yAxis:horizontal?{
+     type:'category',data:data.labels,inverse:true,
+     axisLabel:{color:'#3A4061',fontSize:12,margin:16},
+     axisTick:{show:false},axisLine:{lineStyle:{color:'#B3C0DD'}}
+    }:{
+     type:'value',axisLabel:{formatter:v=>Number(v).toLocaleString('en-US'),color:'#3A4061'},
+     splitLine:{lineStyle:{color:'#DBE2F2'}}
+    },
+    series:data.series.map((x,i)=>({
+     name:x.name,type:data.kind==='line'?'line':'bar',data:x.values,smooth:false,
+     barMaxWidth:horizontal?32:36,itemStyle:{color:colors[i%colors.length]}
+    }))
    };
    chart.setOption(option);
    if(typeof ResizeObserver==='function'){
@@ -204,10 +228,25 @@ function v5FinancialPanel(p){
 }
 function v5TeamPanel(){
  if(!lead())return '';
- const people=(dashboardV5.people||[]).filter(x=>x.active&&x.role==='team_member');
- const assignments=(dashboardV5.assignments||[]).filter(x=>projects.some(p=>p.id===x.project_code));
- return '<section class="card panel v4-section"><h2 class="paneltitle">Team Workload</h2><p class="v5-context">Assigned projects for active team members within your accessible projects. These are counts, not hours or utilization.</p>'+
- (people.length?v7Chart('Assigned Projects By Team Member','bar',people.map(x=>x.display_name),[{name:'Assigned Projects',values:people.map(u=>new Set(assignments.filter(x=>x.user_id===u.id).map(x=>x.project_code)).size)}])+'<div class="table-wrap"><table class="v6-team-table"><thead><tr><th>Team Member</th><th>Assigned Projects</th><th>Project Codes</th></tr></thead><tbody>'+people.map(u=>{const codes=[...new Set(assignments.filter(x=>x.user_id===u.id).map(x=>x.project_code))];return '<tr><td><strong>'+h(u.display_name)+'</strong></td><td class="v6-count">'+codes.length+'</td><td>'+h(codes.join(', ')||'Unassigned')+'</td></tr>'}).join('')+'</tbody></table></div>':'<p>No active team members are available.</p>')+'</section>';
+ // Include the Head of Projects (portfolio oversight) and team_member roles,
+ // but never count an administrative account as a project team member.
+ const people=(dashboardV5.people||[]).filter(u=>u.active&&(u.role==='team_member'||u.role==='head_of_projects'))
+  .sort((a,b)=>(a.role==='head_of_projects'?0:1)-(b.role==='head_of_projects'?0:1)||a.display_name.localeCompare(b.display_name));
+ const visibleCodes=[...new Set(projects.map(p=>p.id))];
+ const accessible=new Set(visibleCodes);
+ const assignments=(dashboardV5.assignments||[]).filter(a=>accessible.has(a.project_code));
+ const rows=people.map(u=>{
+  const oversight=u.role==='head_of_projects';
+  const codes=oversight?visibleCodes:[...new Set(assignments.filter(a=>a.user_id===u.id).map(a=>a.project_code))];
+  return {name:u.display_name,codes,scope:oversight?'Portfolio oversight':'Direct assignment'};
+ });
+ return '<section class="card panel v4-section"><h2 class="paneltitle">Team Workload</h2>'+
+ '<p class="v5-context">Head of Projects: all accessible projects under oversight. Team members: directly assigned projects. Counts are not hours or utilization.</p>'+
+ (rows.length?v7Chart('Projects By Team Member','horizontal',rows.map(x=>x.name),
+ [{name:'Projects in Scope',values:rows.map(x=>x.codes.length)}],'',{maxProjects:accessible.size})+
+ '<div class="table-wrap"><table class="v6-team-table"><thead><tr><th>Team Member</th><th>Projects in Scope</th><th>Project Codes</th></tr></thead><tbody>'+
+ rows.map(u=>'<tr><td><strong>'+h(u.name)+'</strong><small class="v8-team-scope">'+h(u.scope)+'</small></td><td class="v6-count">'+u.codes.length+'</td><td>'+h(u.codes.join(', ')||'None recorded')+'</td></tr>').join('')+
+ '</tbody></table></div>':'<p>No active project team members are available.</p>')+'</section>';
 }
 function v5Portfolio(){
  const currencies=[...new Set(active().map(p=>v7BudgetCurrency(p.id)).filter(Boolean))];
