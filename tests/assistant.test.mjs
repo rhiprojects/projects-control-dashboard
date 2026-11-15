@@ -75,3 +75,32 @@ test('unauthenticated assistant access fails before reading records',async()=>{
  const response=await onRequestPost({request:new Request('https://dashboard.example/api/assistant',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({question:'Contract details?'})}),env});
  assert.equal(response.status,401);
 });
+
+test('which projects have losses is distinct from a monetary loss total',async()=>{
+ setup({failModel:true});
+ const result=await ask('Which projects have losses?');
+ assert.match(result,/cannot identify which projects have recorded losses/i);
+ assert.match(result,/not currently present in the portal/i);
+ assert.doesNotMatch(result,/0 EGP|zero losses/i);
+});
+test('this-year incurred losses reports an unknown monetary amount, not zero or 2027 budget',async()=>{
+ setup({failModel:true});
+ const result=await ask('How many losses did I incur this year?');
+ const year=new Intl.DateTimeFormat('en-GB',{timeZone:'Africa/Cairo',year:'numeric'}).format(new Date());
+ assert.match(result,new RegExp(year));
+ assert.match(result,/how much loss was incurred/i);
+ assert.match(result,/unknown, not zero/i);
+ assert.doesNotMatch(result,/632,893|1,170,869/);
+});
+test('an explicit year overrides the current Cairo year',async()=>{
+ setup({failModel:true});
+ const result=await ask('What was my total loss in 2025?');
+ assert.match(result,/2025/);
+ assert.doesNotMatch(result,/2027 projected budget cannot be treated as an actual loss.*2025/);
+});
+test('negative budget is not treated as recorded financial loss',async()=>{
+ setup({failModel:true});
+ const result=await ask('Which project is losing money based on the budget?');
+ assert.match(result,/cannot identify which projects have recorded losses/i);
+ assert.doesNotMatch(result,/project 776 .*loss-making/i);
+});
