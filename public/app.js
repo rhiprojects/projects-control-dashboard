@@ -116,7 +116,7 @@ function aiDotMatrixMarkupV9(){
   const sphere=[Math.cos(az)*polar*rad,Math.sin(az)*polar*rad,z*rad];
   const bulge=1.07+0.16*((i*17)%13)/12;
   const fixed=n=>n.toFixed(1)+'px';
-  const vars=['--cx:'+fixed(cube[0]),'--cy:'+fixed(cube[1]),'--cz:'+fixed(cube[2]),'--sx:'+fixed(sphere[0]),'--sy:'+fixed(sphere[1]),'--sz:'+fixed(sphere[2]),'--bx:'+fixed(sphere[0]*bulge),'--by:'+fixed(sphere[1]*bulge),'--bz:'+fixed(sphere[2]*bulge),'--phase:'+((i*7)%37/37*1.6).toFixed(2)+'s','--op:'+(0.58+(z+1)*.19).toFixed(2)];
+  const vars=['--cx:'+fixed(cube[0]),'--cy:'+fixed(cube[1]),'--cz:'+fixed(cube[2]),'--sx:'+fixed(sphere[0]),'--sy:'+fixed(sphere[1]),'--sz:'+fixed(sphere[2]),'--bx:'+fixed(sphere[0]*bulge),'--by:'+fixed(sphere[1]*bulge),'--bz:'+fixed(sphere[2]*bulge),'--phase:'+((i*7)%37/37*1.6).toFixed(2)+'s','--op:'+(0.73+(z+1)*.11).toFixed(2)];
   dots.push('<i class="ai-matrix-dot-v9" style="left:'+fixed(cube[0])+';top:'+fixed(cube[1])+';'+vars.join(';')+'"></i>');
  }
  for(let plane=0;plane<3;plane++){
