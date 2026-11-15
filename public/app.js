@@ -22,6 +22,7 @@ const date=d=>{
 };
 const roleName={super_admin:'Super Admin',head_of_projects:'Head of Projects',team_member:'Team Member'};
 const iconPaths={"grid":"<rect x=\"3\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"3\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/>","projects":"<rect x=\"3\" y=\"5\" width=\"18\" height=\"15\" rx=\"2\"/><path d=\"M3 9h18M7 3v4\"/>","chart":"<path d=\"M4 20V11m6 9V4m6 16v-8m5 8H2\"/>","calendar":"<rect x=\"3\" y=\"5\" width=\"18\" height=\"16\" rx=\"2\"/><path d=\"M7 3v4m10-4v4M3 10h18\"/>","reports":"<path d=\"M6 3h10l4 4v14H6zM16 3v5h4M9 12h8M9 16h8\"/>","admin":"<circle cx=\"12\" cy=\"12\" r=\"4\"/><path d=\"M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2m0-14-2 2M7 17l-2 2\"/>","assistant":"<path d=\"M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z\"/>","contract":"<path d=\"M6 3h10l4 4v14H6zM16 3v5h4M9 12h8M9 16h6\"/>","money":"<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M15 8c-1-2-6-2-6 1 0 3 6 1 6 5 0 3-5 4-7 1M12 5v14\"/>","progress":"<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v6m0 4h.01\"/>"};
+iconPaths.network='<path d="M12 3l9 5v8l-9 5-9-5V8l9-5Z M3 8l9 5 9-5 M12 13v8"/><circle cx="12" cy="3" r="1.8" fill="currentColor" stroke="none"/><circle cx="3" cy="8" r="1.8" fill="currentColor" stroke="none"/><circle cx="21" cy="8" r="1.8" fill="currentColor" stroke="none"/><circle cx="12" cy="21" r="1.8" fill="currentColor" stroke="none"/>';
 const ico=name=>'<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+(iconPaths[name]||iconPaths.grid)+'</svg>';
 let dashboardV5=null,dashboardError=false,dashboardRequest=0;
 let detailsError=false,detailsRequest=0,mobileNavOpen=false,creatingRequest=false;
@@ -102,7 +103,7 @@ function projectCard(p){
  const name=p.displayName||p.client||p.name;
  return `<article class="card projectcard">
   <div class="projecttop"><div><div class="projectid">Project ${h(p.id)}</div><h3 class="projectname">${h(name)}</h3>
-   ${p.name&&p.name!==name?`<p class="projectclient">${h(p.name)}</p>`:''}</div><span class="pill ${p.status==='Active'?'green':'neutral'}">${h(p.status||'Not supplied')}</span></div>
+   ${p.name&&p.name!==name?`<p class="projectclient">${h(p.name)}</p>`:''}</div><span class="pill ${p.status==='Active'?'green':p.status==='On Hold'?'amber':p.status==='Cancelled'?'red':'neutral'}">${h(p.status||'Not supplied')}</span></div>
   <dl class="projectstats"><div><dt>Contract value</dt><dd>${h(moneyLabel(p.contractValue,p.contractCurrency))}</dd></div>
    <div><dt>Project end</dt><dd>${h(portalProjectEndText(p))}</dd></div>
    <div><dt>Physical progress</dt><dd>${p.progress===null?'Not recorded':h(p.progress)+'%'}</dd></div></dl>
@@ -270,32 +271,9 @@ let creatingV4=false, detailsV4=null, chatV4=[],chatBusyV4=false,aiClarification
 let aiRequestNonceV9=0;
 function aiCancelV9(){++aiRequestNonceV9;chatBusyV4=false;}
 function aiBeginV9(){return ++aiRequestNonceV9;}
-function aiSimpleOrbV10(){
- const N=156,center=72,radius=49,goldenAngle=Math.PI*(3-Math.sqrt(5));
- const dots=[];
- for(let i=0;i<N;i++){
-  const depth=1-2*(i+.5)/N;
-  const ringRadius=Math.sqrt(1-depth*depth);
-  const theta=i*goldenAngle;
-  const x=center+Math.cos(theta)*ringRadius*radius;
-  const y=center+Math.sin(theta)*ringRadius*radius;
-  const brightness=(depth+1)/2;
-  const r=(0.75+0.70*brightness).toFixed(2);
-  const op=(.30+.64*brightness).toFixed(2);
-  const sparkle=i%13===0;
-  const delay=-(i%17)*.41;
-  dots.push('<circle class="ai-orb-dot-v10'+(sparkle?' ai-orb-spark-v10':'')+
-   '" cx="'+x.toFixed(2)+'" cy="'+y.toFixed(2)+'" r="'+r+
-   '" fill="'+(brightness>.48?'#3A4061':'#7B88B6')+
-   '" opacity="'+op+'"'+(sparkle?' style="--spark-delay:'+delay.toFixed(2)+'s;--base-opacity:'+op+'"':'')+' />');
- }
- return '<div class="ai-orb-v10" aria-hidden="true"><svg class="ai-orb-svg-v10" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 144 144" focusable="false"><g class="ai-orb-rotate-v10">'+dots.join('')+'</g></svg></div>'+
- '<span class="ai-orb-status-v10" role="status" aria-live="polite">'+(chatBusyV4?'Assistant retrieving a response':'AI Assistant ready')+'</span>';
-}
-
 function aiPanelV4(){
  const topics=[["Projects","How many projects can I access?"],["Financials","What are my projects' 2027 budgets?"],["Progress","What is the latest physical progress of my projects?"],["Contracts","What contract details are available?"],["Dates","When are my projects scheduled to finish?"],["Owners","Who is responsible for my projects?"]];
- return `<section class="card ai-card-v4"><div class="ai-top-v4"><h2>AI Assistant</h2><button type="button" title="Clear Chat" aria-label="Clear Chat" class="ai-menu-v4" data-v4="clear">⋮</button></div>${aiSimpleOrbV10()}<h3 class="ai-heading-v4">What Can I Help With?</h3><div class="ai-topics-v4">${topics.map(([label,question])=>`<button type="button" data-v4="prompt" data-question="${h(question)}">${label}</button>`).join("")}</div>${chatV4.length?`<div class="ai-chat-v4">${chatV4.map(x=>`<p class="${x.role==='user'?'my-question':''}">${h(x.content)}</p>`).join('')}</div>`:''}${aiClarificationV4?.kind==='loss_basis'?`<div class="ai-topics-v4" aria-label="Choose how to define loss"><button type="button" data-v4="clarify" data-choice="Gross loss">Gross loss</button><button type="button" data-v4="clarify" data-choice="Net loss">Net loss</button><button type="button" data-v4="clarify" data-choice="Both">Both</button></div>`:''}<form id="ai-v4" class="ai-input-v4"><span aria-hidden="true">✣</span><input aria-label="Ask the AI Assistant" name="question" placeholder="Ask anything about your projects..." maxlength="1600" required><button ${chatBusyV4?'disabled':''}>↑ Send</button></form></section>`;
+ return `<section class="card ai-card-v4"><div class="ai-top-v4"><div class="ai-identity-v4"><span class="ai-mark-v4" aria-hidden="true">${ico("network")}</span><div><h2>Projects AI Assistant</h2><p class="ai-description-v4">Ask about projects, financials, contracts, progress, schedules, and owners.</p></div></div><button type="button" title="Clear chat history" aria-label="Clear chat history" class="ai-menu-v4" data-v4="clear">Clear chat</button></div><h3 class="ai-heading-v4">Quick questions</h3><div class="ai-topics-v4">${topics.map(([label,question])=>`<button type="button" data-v4="prompt" data-question="${h(question)}">${ico(({Projects:"projects",Financials:"chart",Progress:"progress",Contracts:"contract",Dates:"calendar",Owners:"admin"})[label]||"grid")}<span>${label}</span></button>`).join("")}</div>${chatV4.length?`<div class="ai-chat-v4">${chatV4.map(x=>`<p class="${x.role==='user'?'my-question':''}">${h(x.content)}</p>`).join('')}</div>`:''}${aiClarificationV4?.kind==='loss_basis'?`<div class="ai-topics-v4" aria-label="Choose how to define loss"><button type="button" data-v4="clarify" data-choice="Gross loss">Gross loss</button><button type="button" data-v4="clarify" data-choice="Net loss">Net loss</button><button type="button" data-v4="clarify" data-choice="Both">Both</button></div>`:''}<form id="ai-v4" class="ai-input-v4"><input aria-label="Ask the AI Assistant" name="question" placeholder="Ask anything about your projects…" maxlength="1600" required><button type="submit" ${chatBusyV4?'disabled':''}>Send ${ico("assistant")}</button></form></section>`;
 }
 
 
@@ -431,40 +409,40 @@ async function v7RenderCharts(){
    const chart=echarts.init(el,null,{renderer:'svg'});
    const horizontal=data.kind==='horizontal';
    const totalProjects=Math.max(1,Number(data.maxProjects)||0);
-   const colors=['#3A4061','#7B88B6','#B3C0DD'];
+   const colors=['#1F5E96','#62A2D5','#A0BED6'];
    const option={
     animation:false,
     color:colors,
-    textStyle:{color:'#3A4061'},
+    textStyle:{color:'#243548'},
     tooltip:{
-     trigger:'axis',backgroundColor:'#F4F6FB',borderColor:'#B3C0DD',
-     textStyle:{color:'#3A4061'},
-     axisPointer:{lineStyle:{color:'#B3C0DD'},shadowStyle:{color:'#DBE2F2'}},
+     trigger:'axis',backgroundColor:'#FFFFFF',borderColor:'#BECFDF',
+     textStyle:{color:'#243548'},
+     axisPointer:{lineStyle:{color:'#BECFDF'},shadowStyle:{color:'#E5EEF6'}},
      valueFormatter:v=>v==null?'Not recorded':Number(v).toLocaleString('en-US',{maximumFractionDigits:2})+(data.currency?' '+data.currency:'')
     },
-    legend:{top:0,type:'scroll',textStyle:{color:'#3A4061'}},
+    legend:{top:0,type:'scroll',textStyle:{color:'#243548'}},
     grid:horizontal?{left:24,right:32,top:48,bottom:42,containLabel:true}:{left:16,right:22,top:48,bottom:48,containLabel:true},
     xAxis:horizontal?{
      type:'value',min:0,max:totalProjects,interval:1,minInterval:1,
      name:'Projects',nameLocation:'middle',nameGap:28,
-     axisLabel:{color:'#3A4061',formatter:value=>Number.isInteger(value)?String(value):''},
-     splitLine:{lineStyle:{color:'#DBE2F2'}}
+     axisLabel:{color:'#243548',formatter:value=>Number.isInteger(value)?String(value):''},
+     splitLine:{lineStyle:{color:'#E5EEF6'}}
     }:{
-     type:'category',data:data.labels,axisLabel:{hideOverlap:!data.financial,color:'#3A4061',rotate:data.financial?35:0,...(data.financial?{width:90,overflow:'break'}:{})},
-     axisLine:{lineStyle:{color:'#B3C0DD'}}
+     type:'category',data:data.labels,axisLabel:{hideOverlap:!data.financial,color:'#243548',rotate:data.financial?35:0,...(data.financial?{width:90,overflow:'break'}:{})},
+     axisLine:{lineStyle:{color:'#BECFDF'}}
     },
     yAxis:horizontal?{
      type:'category',data:data.labels,inverse:true,
-     axisLabel:{color:'#3A4061',fontSize:12,margin:16},
-     axisTick:{show:false},axisLine:{lineStyle:{color:'#B3C0DD'}}
+     axisLabel:{color:'#243548',fontSize:12,margin:16},
+     axisTick:{show:false},axisLine:{lineStyle:{color:'#BECFDF'}}
     }:{
-     type:'value',name:data.financial?data.currency:'',axisLabel:{formatter:v=>Number(v).toLocaleString('en-US',{maximumFractionDigits:2}),color:'#3A4061'},
-     splitLine:{lineStyle:{color:'#DBE2F2'}}
+     type:'value',name:data.financial?data.currency:'',axisLabel:{formatter:v=>Number(v).toLocaleString('en-US',{maximumFractionDigits:2}),color:'#243548'},
+     splitLine:{lineStyle:{color:'#E5EEF6'}}
     },
     series:data.series.map((x,i)=>({
      name:x.name,type:data.kind==='line'?'line':'bar',data:x.values,smooth:false,
      barMaxWidth:horizontal?32:36,itemStyle:{color:colors[i%colors.length],
-      ...(data.financial&&i===1?{decal:{symbol:'rect',dashArrayX:[1,0],dashArrayY:[2,4],color:'#3A4061'}}:{})}
+      ...(data.financial&&i===1?{decal:{symbol:'rect',dashArrayX:[1,0],dashArrayY:[2,4],color:'#243548'}}:{})}
     }))
    };
    chart.setOption(option);
