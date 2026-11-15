@@ -301,6 +301,18 @@ function projectEndLabel(p){
   .format(new Date(Date.UTC(year,month-1,1)))+' '+year;
  return label+(p.forecastFinish?' (revised finish)':p.baselineFinish?' (planned finish)':' (2027 budget-derived; exact date not recorded)');
 }
+
+// Source reconciliation only: a duration mismatch must not silently rewrite budgets.
+function projectDurationWarning(p){
+ if(p?.forecastFinish||p?.baselineFinish||!Number.isInteger(p?.durationMonths))return '';
+ const funded=v7MonthlyBudget(p.id).filter(x=>Number(x.baseline_amount)>0)
+  .map(x=>String(x.period_start).slice(0,7)).sort();
+ if(!funded.length)return '';
+ const start=funded[0].split('-').map(Number),end=funded[funded.length-1].split('-').map(Number);
+ const span=(end[0]-start[0])*12+end[1]-start[1]+1;
+ return span===p.durationMonths?'':'Recorded duration '+p.durationMonths+' months differs from '+span+
+  ' calendar months of funded 2027 project budget ('+funded[0]+' to '+funded[funded.length-1]+'). Confirm the contractual end date; no budget values were changed.';
+}
 const v7BudgetCurrency=id=>v7MonthlyBudget(id).find(x=>v5Number(x.baseline_amount)!==null&&Number(x.baseline_amount)!==0)?.currency||v7MonthlyBudget(id)[0]?.currency||null;
 const v7Total=(rows,key)=>{const valid=rows.filter(x=>v5Number(x[key])!==null);return valid.length?valid.reduce((n,x)=>n+Number(x[key]),0):null;};
 function v5Health(id,currency){
@@ -444,6 +456,7 @@ function v5FinancialPanel(p){
  const note=categoriesAvailable?'Category values reconcile with approved monthly budgets for the included scheduled months. These are budgeted reference costs.':'Category comparisons are withheld because the reference lines do not establish a reconciled breakdown of the scheduled monthly budget. The approved and working monthly budgets remain available below.';
  return '<section class="card panel v4-section v5-financial" aria-label="Financial analysis"><h2 class="paneltitle">Project Financial Analysis</h2><p class="v5-context">Original Contract Value is contractual and has no annual reporting period here. Approved and Working Project Budgets cover the available 2027 monthly records and include manpower and other costs. These measures retain their own currencies and do not establish actual revenue, incurred expenditure, or profit.</p>'+
  '<p class="v5-context">Current project and budget end: '+h(projectEndLabel(p))+'. An extension does not automatically add budget amounts.</p>'+
+ (projectDurationWarning(p)?'<p class="v5-context" role="status">'+h(projectDurationWarning(p))+'</p>':'')+
  (postEndMonths.length?'<p class="v5-context">'+postEndMonths.length+' post-end monthly rows are retained in the budget register for audit but omitted from the active-period chart and table.</p>':'')+
  (postEndFunded.length?'<p class="v5-context" role="status">Financial reconciliation required: '+postEndFunded.length+' funded monthly record(s) fall after the revised project end. Recorded annual budget totals remain unchanged pending review.</p>':'')+
  (outsideManpower.length?'<p class="v5-context" role="status">Review required: '+outsideManpower.map(x=>String(x.period_start).slice(0,7)+' Manpower reference '+v5Money(v5Number(x.baseline_amount),x.currency)).join('; ')+' falls after the project end. This entry has not been removed or reassigned.</p>':'')+
@@ -520,7 +533,7 @@ function projectViewV4(){
  const owner=p.internalOwnerId===me.userId?me.displayName:!p.internalOwnerId?'Not assigned':
    d?.people?.find(u=>u.id===p.internalOwnerId)?.display_name||(d||detailsError?'Unavailable':'Loading…');
  return heading('Projects',`${h(p.id)} · ${h(p.displayName||p.client)}`,h(p.scope||''),`<button class="btn" data-v4="back">Back</button><button class="btn primary" data-v4="edit"${!d?' disabled':''}>Edit Project</button>`)+
- `<section class="card panel v4-section"><h2 class="paneltitle">Project Information</h2><div class="v4-facts">${line('Internal owner',owner)}${line('Client / contracting organization',p.client)}${line('Contract value',moneyLabel(p.contractValue,p.contractCurrency))}${line('Physical progress',p.progress===null?'Not recorded':p.progress+'%')}${line('Location',p.location)}${line('Start date',p.startDate)}${line('Current project / budget end',projectEndLabel(p))}${line('Planned finish',p.baselineFinish)}${line('Forecast finish',p.forecastFinish)}${line('Duration (months)',p.durationMonths)}</div></section>
+ `<section class="card panel v4-section"><h2 class="paneltitle">Project Information</h2><div class="v4-facts">${line('Internal owner',owner)}${line('Client / contracting organization',p.client)}${line('Contract value',moneyLabel(p.contractValue,p.contractCurrency))}${line('Physical progress',p.progress===null?'Not recorded':p.progress+'%')}${line('Location',p.location)}${line('Start date',p.startDate)}${line('Current project / budget end',projectEndLabel(p))}${projectDurationWarning(p)?line('Schedule verification',projectDurationWarning(p)):''}${line('Planned finish',p.baselineFinish)}${line('Forecast finish',p.forecastFinish)}${line('Duration (months)',p.durationMonths)}</div></section>
  ${d?projectTeamV4(d):dataStatus('Project details',detailsError,'retry-details')}
  ${dashboardV5?v5FinancialPanel(p):dataStatus('Project financial analysis',dashboardError,'retry-dashboard')}
  ${d?projectRecordsV4(d):''}`;
