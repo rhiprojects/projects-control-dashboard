@@ -141,3 +141,27 @@ test('negative budget is not treated as recorded financial loss',async()=>{
  assert.match(result,/gross loss.*net loss/i);
  assert.doesNotMatch(result,/project 776 .*loss-making/i);
 });
+
+test('natural language monetary loss question still asks for basis',async()=>{
+ setup({failModel:true});
+ const first=await chatTurn('How much money did I lose this year?');
+ assert.equal(first.clarification?.kind,'loss_basis');
+ const next=await chatTurn('Gross',first.clarification);
+ assert.match(next.answer,/how much loss was incurred/i);
+ assert.match(next.answer,/gross-loss basis/i);
+ assert.match(next.answer,/unknown, not zero/i);
+});
+test('unsure response explains options while keeping original question pending',async()=>{
+ setup({failModel:true});
+ const first=await chatTurn('Which projects have losses?');
+ const next=await chatTurn('Not sure',first.clarification);
+ assert.equal(next.clarification?.originalQuestion,'Which projects have losses?');
+ assert.match(next.answer,/gross loss.*net loss/i);
+});
+test('unrelated question that mentions gross starts new topic',async()=>{
+ setup({failModel:true});
+ const first=await chatTurn('Which projects have losses?');
+ const next=await chatTurn('What is the gross budget for project 736?',first.clarification);
+ assert.equal(next.clarification,undefined);
+ assert.match(next.answer,/project 736/i);
+});
