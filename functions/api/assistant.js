@@ -52,16 +52,16 @@ function projectLine(p,owner,assignees,monthly){
 // "Loss-making projects" and "amount of loss this year" are distinct questions.
 const cairoCalendarYear=(now=new Date())=>new Intl.DateTimeFormat('en-GB',{timeZone:'Africa/Cairo',year:'numeric'}).format(now);
 function lossIntent(q){
- if(!/\\b(loss|losses|losing|loss-making|loss-making|deficit|deficits)\\b|\\blost money\\b|negative (?:gross )?(?:margin|profit)/i.test(q))return null;
- if(/\\b(?:how many|number of)\\s+projects?\\b/i.test(q))return 'projects';
- return /\\b(?:how much|how many losses|total losses|total loss|amount|incurr?ed|did i lose|monetary loss|financial loss)\\b/i.test(q)?'amount':'projects';
+ if(!/\b(loss|losses|losing|loss-making|loss-making|deficit|deficits)\b|\blost money\b|negative (?:gross )?(?:margin|profit)/i.test(q))return null;
+ if(/\b(?:how many|number of)\s+projects?\b/i.test(q))return 'projects';
+ return /\b(?:how much|how many losses|total losses|total loss|amount|incurr?ed|did i lose|monetary loss|financial loss)\b/i.test(q)?'amount':'projects';
 }
 function lossAnswer(question,view,unavailable){
  const intent=lossIntent(question);
  if(!intent)return null;
  const q=low(question);
- const explicitYear=q.match(/\\b20\\d{2}\\b/);
- const year=explicitYear?.[0]||(/\\b(?:this year|current year|year.to.date|ytd)\\b/.test(q)?cairoCalendarYear():null);
+ const explicitYear=q.match(/\b20\d{2}\b/);
+ const year=explicitYear?.[0]||(/\b(?:this year|current year|year.to.date|ytd)\b/.test(q)?cairoCalendarYear():null);
  const period=year?'during '+year+' (Cairo calendar year)':'for any recorded period';
  const currentRows=view.flatMap(x=>(x.actuals||[]).filter(r=>!year||String(r.period_start).slice(0,4)===String(year)));
  if(unavailable.includes('recorded actuals')){
