@@ -48,7 +48,7 @@ test('manager finish update governs displayed period without generating budget v
 
 test('818.01 zero separate manpower is explained as COGS personnel classification',()=>{
  const run=frontend();
- run("projects[0].id='818.01';dashboardV5.monthlyBudgets.forEach(x=>x.project_code='818.01');dashboardV5.budgetLines.forEach(x=>{x.project_code='818.01';x.category='COGS – Personnel Costs';});");
+ run("projects[0].id='818.01';dashboardV5.monthlyBudgets.forEach(x=>x.project_code='818.01');dashboardV5.budgetLines.forEach(x=>{x.project_code='818.01';x.category='COGS - Personnel Costs';});dashboardV5.budgetLines.push({project_code:'818.01',period_start:'2027-01-01',currency:'EGP',category:'Manpower',baseline_amount:0,current_amount:0});");
  const panel=run('v5FinancialPanel(projects[0])');
  assert.match(panel,/separate Manpower is correctly zero/);
  assert.match(panel,/Do not double-count personnel/);
